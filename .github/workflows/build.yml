@@ -70,7 +70,7 @@ jobs:
           echo "IPA: $((SIZE / 1024)) KB — v$VERSION ($BUILD), min iOS $MINOS"
 
       - name: Upload IPA artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Rampa-${{ steps.package.outputs.version }}
           path: ${{ runner.temp }}/Rampa.ipa
