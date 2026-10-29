@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rampa — source SideStore</title>
+<link rel="icon" href="source-icon.png">
+<style>
+  :root {
+    --canvas: #08090b;
+    --ink: #f2f3f5;
+    --ink-dim: #9aa1ad;
+    --flare: #7da2ff;
+    --bar-h: 60px;
+    --radius: 30px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-content: center;
+    gap: 3.5rem;
+    padding: 2rem 1.5rem;
+    background: var(--canvas);
+    color: var(--ink);
+    font: 400 16px/1.55 ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    text-align: center;
+    overflow-x: hidden;
+  }
+
+  /* The ambient pool the glass refracts. Same idea as the app's backdrop. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(60% 45% at 50% 62%, rgba(47, 91, 234, .30), transparent 70%),
+      radial-gradient(50% 40% at 50% 8%, rgba(143, 180, 255, .16), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  h1 {
+    margin: 0 0 .5rem;
+    font-size: clamp(2.2rem, 7vw, 3.4rem);
+    font-weight: 700;
+    letter-spacing: -.03em;
+  }
+
+  p { margin: 0; color: var(--ink-dim); max-width: 34ch; margin-inline: auto; }
+
+  /* The hero is the bar itself, rebuilt in CSS. One loud element, nothing else. */
+  .bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    width: min(88vw, 380px);
+    height: var(--bar-h);
+    margin-inline: auto;
+    padding: 4px;
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, .10);
+    border: .5px solid rgba(255, 255, 255, .22);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .30),
+      inset 0 -12px 24px rgba(255, 255, 255, .05),
+      0 24px 60px -20px rgba(47, 91, 234, .55);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+  }
+
+  /* The travelling lens. */
+  .lens {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    height: calc(var(--bar-h) - 8px);
+    width: calc((100% - 8px) / 5);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(125, 162, 255, .34), rgba(125, 162, 255, .14));
+    border: .5px solid rgba(255, 255, 255, .28);
+    transition: transform .34s cubic-bezier(.34, 1.02, .48, 1);
+    pointer-events: none;
+  }
+
+  .tab {
+    position: relative;
+    display: grid;
+    place-items: center;
+    gap: 2px;
+    height: 100%;
+    border: 0;
+    background: none;
+    color: var(--ink-dim);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: color .2s ease;
+  }
+
+  .tab[aria-selected="true"] { color: var(--flare); }
+  .tab:focus-visible { outline: 2px solid var(--flare); outline-offset: 2px; }
+  .tab svg { width: 19px; height: 19px; }
+
+  .links { display: flex; flex-wrap: wrap; gap: .75rem; justify-content: center; }
+
+  .links a {
+    padding: .7rem 1.25rem;
+    border-radius: 999px;
+    border: .5px solid rgba(255, 255, 255, .22);
+    background: rgba(255, 255, 255, .07);
+    color: var(--ink);
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .2s ease, border-color .2s ease;
+  }
+
+  .links a:hover { background: rgba(255, 255, 255, .13); border-color: rgba(255, 255, 255, .34); }
+
+  code {
+    font: 600 .8rem/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--flare);
+    overflow-wrap: anywhere;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lens { transition: none; }
+    .tab, .links a { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div>
+    <h1>Rampa</h1>
+    <p>An empty app whose only subject is a floating Liquid&nbsp;Glass bar. Five destinations, one sliding lens.</p>
+  </div>
+
+  <nav class="bar" id="bar" aria-label="Navigation principale">
+    <span class="lens" id="lens"></span>
+    <button class="tab" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+      Accueil
+    </button>
+    <button class="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg>
+      Flux
+    </button>
+    <button class="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Créer
+    </button>
+    <button class="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+      Pulse
+    </button>
+    <button class="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 10V8a6 6 0 0 1 12 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h8V8a4 4 0 0 0-8 0v2z"/></svg>
+      Coffre
+    </button>
+  </nav>
+
+  <div>
+    <div class="links">
+      <a href="https://github.com/Leboxis/rampa/releases/latest/download/Rampa.ipa">Download the IPA</a>
+      <a href="https://github.com/Leboxis/rampa">Source</a>
+    </div>
+    <p style="margin-top:1.75rem">Add this source in SideStore:</p>
+    <p><code>https://leboxis.github.io/rampa/repo.json</code></p>
+  </div>
+
+<script>
+  const bar = document.getElementById('bar');
+  const lens = document.getElementById('lens');
+  const tabs = [...bar.querySelectorAll('.tab')];
+
+  function select(index) {
+    tabs.forEach((t, i) => t.setAttribute('aria-selected', String(i === index)));
+    lens.style.transform = `translateX(${index * 100}%)`;
+  }
+
+  tabs.forEach((tab, i) => tab.addEventListener('click', () => select(i)));
+
+  // Drag horizontally to slide, mirroring the app's bar gesture.
+  let startX = null;
+  bar.addEventListener('pointerdown', (e) => { startX = e.clientX; });
+  bar.addEventListener('pointerup', (e) => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    startX = null;
+    const current = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    const steps = Math.round(dx / (bar.clientWidth / tabs.length));
+    if (steps) select(Math.min(Math.max(current + steps, 0), tabs.length - 1));
+  });
+
+  // Arrow keys, because a real tab bar is reachable without a mouse.
+  bar.addEventListener('keydown', (e) => {
+    const current = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    if (e.key === 'ArrowRight') { e.preventDefault(); tabs[Math.min(current + 1, tabs.length - 1)].focus(); select(Math.min(current + 1, tabs.length - 1)); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); tabs[Math.max(current - 1, 0)].focus(); select(Math.max(current - 1, 0)); }
+  });
+</script>
+</body>
+</html>
