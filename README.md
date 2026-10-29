@@ -19,9 +19,13 @@ an unsigned `.ipa` with a SideStore source.
 | Shape | `Capsule` — one continuous surface, 60 pt tall |
 | Lens | Tinted capsule, 26% → 12% vertical gradient, hairline rim at 22% white |
 | Slide | `Animation.smooth(duration: 0.34, extraBounce: 0.06)` |
-| Stage | `Animation.smooth(duration: 0.38, extraBounce: 0.04)` + 14 pt glide |
-| Ambient | `Animation.smooth(duration: 0.65)` |
+| Ambient | `Animation.smooth(duration: 0.65)` — slower, so the background lags |
 | Feedback | `sensoryFeedback(.selection, trigger:)` |
+| Targets | 44 pt minimum per destination, labels always visible |
+
+The lens, the stage cross-fade and the ambient pool all run on `Motion.pill`.
+Sharing one curve is what makes the bar and the content look like two views of
+the same state change rather than two animations that happen to start together.
 
 The lens is *not* glass. Glass cannot sample other glass, so a second glass
 surface inside the bar muddies the material — it is a tinted capsule with a rim
@@ -42,8 +46,9 @@ The `.ipa` is unsigned. Use a signer:
 - **TrollStore** — open the `.ipa` on a supported firmware.
 
 The source manifest lives at [`docs/repo.json`](docs/repo.json) and is served by
-GitHub Pages. `size` and `date` in it are informational; the download URL is
-stable (`releases/latest/download/Rampa.ipa`), so it never needs editing again.
+GitHub Pages at <https://leboxis.github.io/rampa/>. Its download URL points at
+`releases/latest/download/Rampa.ipa`, which always resolves to the newest
+release, so the manifest never needs editing when a build ships.
 
 ## Build
 
@@ -58,7 +63,8 @@ xcodebuild -project Rampa.xcodeproj -scheme Rampa -configuration Release \
 
 In CI, [`.github/workflows/build.yml`](.github/workflows/build.yml) runs on every
 push and pull request, uploads the `.ipa` as an artifact, and — on a `v*` tag —
-publishes it as a GitHub Release. To cut a release:
+publishes it as a GitHub Release. The release step is idempotent, so re-running
+on a moved tag replaces the asset instead of failing. To cut a release:
 
 ```sh
 git tag v1.0.0 && git push origin v1.0.0
@@ -74,7 +80,7 @@ Rampa/
   Features/       TabStageView
   Resources/      Assets.xcassets
 Support/          Info.plist
-docs/             repo.json + source art
+docs/             repo.json, index.html, source art
 ```
 
 ## Licence
