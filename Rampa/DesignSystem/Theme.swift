@@ -31,10 +31,6 @@ enum Theme {
         /// minimum touch target once the button's own frame is considered.
         static let barHeight: CGFloat = 60
 
-        /// Continuous corner radius of the bar. Half of `barHeight` keeps the
-        /// bar a true lozenge, which is what the glass reads best as.
-        static var barCorner: CGFloat { barHeight / 2 }
-
         /// Horizontal inset of the bar from the screen edges.
         static let barInset: CGFloat = 20
 
