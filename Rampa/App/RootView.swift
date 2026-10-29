@@ -23,10 +23,12 @@ struct RootView: View {
 
             GlassTabBar(selection: selection) { tab in
                 guard tab != selection else { return }
+                // One curve for everything that moves: the lens, the stage and
+                // the ambient pool are three views of the same state change.
                 if reduceMotion {
                     selection = tab
                 } else {
-                    withAnimation(Theme.Motion.stage) { selection = tab }
+                    withAnimation(Theme.Motion.pill) { selection = tab }
                 }
             }
             .padding(.horizontal, Theme.Metrics.barInset)

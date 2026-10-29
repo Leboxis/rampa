@@ -107,6 +107,8 @@ struct GlassTabBar: View {
                 let target = min(max(selection.rawValue + steps, 0), AppTab.allCases.count - 1)
                 let next = AppTab(rawValue: target) ?? selection
 
+                // The settle and the selection change must share one curve,
+                // otherwise the lens and the tab disagree mid-flight.
                 withAnimation(reduceMotion ? Theme.Motion.reduced : Theme.Motion.pill) {
                     dragOffset = 0
                     if next != selection { onSelect(next) }

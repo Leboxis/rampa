@@ -45,15 +45,16 @@ enum Theme {
     // MARK: Motion
 
     enum Motion {
-        /// Drives the pill sliding between tabs. A short, barely-bouncy spring
-        /// settles in ~0.34 s, which at 120 Hz is roughly 40 frames of travel —
-        /// long enough to read as movement, short enough to feel instant.
+        /// Drives the lens sliding between tabs *and* the stage cross-fade.
+        /// Sharing one curve matters: the bar and the content are two views of
+        /// the same state change, so they must land together. 0.34 s with a
+        /// 0.06 bounce is roughly 40 frames at 120 Hz — long enough to read as
+        /// movement, short enough to feel instant.
         static let pill = Animation.smooth(duration: 0.34, extraBounce: 0.06)
 
-        /// Drives the cross-fade between tab stages.
-        static let stage = Animation.smooth(duration: 0.38, extraBounce: 0.04)
-
         /// Ambient light drifting behind the canvas when the tab changes.
+        /// Slower than the lens so the background lags the foreground, which is
+        /// what gives the motion depth.
         static let ambient = Animation.smooth(duration: 0.65, extraBounce: 0)
 
         /// Used instead of the springs when Reduce Motion is on.
