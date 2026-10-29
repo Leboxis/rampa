@@ -7,8 +7,6 @@ struct TabStageView: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Spacer()
-
             Image(systemName: tab.symbol)
                 .font(.system(size: 34, weight: .semibold))
                 .foregroundStyle(Theme.flare)
@@ -18,12 +16,10 @@ struct TabStageView: View {
                 .foregroundStyle(Theme.ink)
 
             Text(tab.invitation)
-                .font(.system(size: 15, weight: .regular))
+                .font(.system(size: 15))
                 .foregroundStyle(Theme.inkSecondary)
                 .multilineTextAlignment(.center)
-
-            Spacer()
-            Spacer()
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

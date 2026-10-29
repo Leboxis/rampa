@@ -4,7 +4,9 @@ import SwiftUI
 /// floating Liquid Glass bar pinned above the home indicator.
 ///
 /// The bar is laid out by the parent rather than with `.safeAreaInset`, so it
-/// floats clear of the home indicator and the content can pass behind it.
+/// floats clear of the home indicator and content can pass behind it. The stage
+/// reserves the bar's height at the bottom, which keeps its empty state centred
+/// in the space you can actually see.
 struct RootView: View {
     @State private var selection: AppTab = .home
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,6 +18,7 @@ struct RootView: View {
             TabStageView(tab: selection)
                 .id(selection)
                 .transition(stageTransition)
+                .padding(.bottom, Theme.Metrics.barHeight + Theme.Metrics.barInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             GlassTabBar(selection: selection) { tab in

@@ -131,7 +131,7 @@ struct GlassTabBar: View {
 // MARK: - Button
 
 /// One destination in the bar: a glyph that lifts and tints when active, with
-/// its label revealed underneath.
+/// its label always visible so the bar is readable without guessing at symbols.
 private struct TabBarButton: View {
     let tab: AppTab
     let isSelected: Bool
@@ -147,13 +147,12 @@ private struct TabBarButton: View {
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(isSelected ? Theme.flare : Theme.inkSecondary)
                     .symbolEffect(.bounce, value: isSelected)
-                    .offset(y: isSelected && !reduceMotion ? -3 : 0)
+                    .offset(y: isSelected && !reduceMotion ? -2 : 0)
 
                 Text(tab.title)
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Theme.flare)
-                    .opacity(isSelected ? 1 : 0)
-                    .scaleEffect(isSelected ? 1 : 0.7, anchor: .top)
+                    .foregroundStyle(isSelected ? Theme.flare : Theme.inkSecondary)
+                    .opacity(isSelected ? 1 : 0.7)
             }
             .frame(width: itemWidth, height: Theme.Metrics.barHeight - Theme.Metrics.pillInset * 2)
             .contentShape(Rectangle())
