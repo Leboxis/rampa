@@ -79,6 +79,7 @@ jobs:
 
       # A tag pushes a GitHub Release, which gives the SideStore source a stable
       # "latest" download URL: /releases/latest/download/Rampa.ipa
+      # Re-running on a moved tag must replace the asset, not fail.
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -86,11 +87,19 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          gh release create "$TAG" "$RUNNER_TEMP/Rampa.ipa#Rampa.ipa" \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Rampa $TAG" \
-            --notes "Unsigned build of Rampa. Install with SideStore, LiveContainer, or TrollStore." \
-            --latest
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG exists — replacing the IPA asset."
+            gh release upload "$TAG" "$RUNNER_TEMP/Rampa.ipa#Rampa.ipa" \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --latest
+          else
+            gh release create "$TAG" "$RUNNER_TEMP/Rampa.ipa#Rampa.ipa" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Rampa $TAG" \
+              --notes "Unsigned build of Rampa. Install with SideStore, LiveContainer, or TrollStore." \
+              --latest
+          fi
 
       - name: Verify source manifest
         run: |
