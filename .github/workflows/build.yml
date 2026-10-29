@@ -1,0 +1,109 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build unsigned IPA
+    runs-on: xcode-27
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          echo "iOS SDK: $(xcrun --sdk iphoneos --show-sdk-version)"
+
+      - name: Build archive
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Rampa.xcodeproj \
+            -scheme Rampa \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Rampa.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+
+      - name: Package IPA
+        id: package
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/Rampa.xcarchive/Products/Applications/Rampa.app"
+          test -d "$APP" || { echo "::error::Rampa.app was not produced"; exit 1; }
+
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/Payload/"
+          cd "$RUNNER_TEMP"
+          zip -qry Rampa.ipa Payload
+
+          SIZE=$(stat -f%z "$RUNNER_TEMP/Rampa.ipa")
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Info.plist")
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP/Info.plist")
+          MINOS=$(/usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist")
+
+          echo "size=$SIZE"     >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD"   >> "$GITHUB_OUTPUT"
+          echo "minos=$MINOS"   >> "$GITHUB_OUTPUT"
+          echo "IPA: $((SIZE / 1024)) KB — v$VERSION ($BUILD), min iOS $MINOS"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rampa-${{ steps.package.outputs.version }}
+          path: ${{ runner.temp }}/Rampa.ipa
+          if-no-files-found: error
+          retention-days: 90
+
+      # A tag pushes a GitHub Release, which gives the SideStore source a stable
+      # "latest" download URL: /releases/latest/download/Rampa.ipa
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "$TAG" "$RUNNER_TEMP/Rampa.ipa#Rampa.ipa" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Rampa $TAG" \
+            --notes "Unsigned build of Rampa. Install with SideStore, LiveContainer, or TrollStore." \
+            --latest
+
+      - name: Verify source manifest
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          path = pathlib.Path("docs/repo.json")
+          data = json.loads(path.read_text())
+          assert data["apps"], "source has no apps"
+          for app in data["apps"]:
+              assert app["bundleIdentifier"], "app is missing bundleIdentifier"
+              assert app["versions"], f'{app["name"]} has no versions'
+              for v in app["versions"]:
+                  assert v["downloadURL"].endswith(".ipa"), "downloadURL must be an .ipa"
+                  assert v["version"], "version string is required"
+          print(f'OK — {data["name"]}: ' + ", ".join(a["name"] for a in data["apps"]))
+          PY

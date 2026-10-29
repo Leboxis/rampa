@@ -1,0 +1,41 @@
+{
+  "name": "Rampa",
+  "identifier": "com.leboxis.rampa.source",
+  "subtitle": "Liquid Glass navigation shell for iOS 27.",
+  "description": "Unsigned builds of Rampa, a SwiftUI shell with a floating Liquid Glass navigation bar: five destinations, a sliding lens, and smooth 120 Hz motion. Install with SideStore, LiveContainer, or TrollStore.",
+  "iconURL": "https://raw.githubusercontent.com/Leboxis/rampa/main/docs/source-icon.png",
+  "headerURL": "https://raw.githubusercontent.com/Leboxis/rampa/main/docs/source-header.png",
+  "website": "https://github.com/Leboxis/rampa",
+  "tintColor": "#2F5BEA",
+  "featuredApps": ["com.leboxis.rampa"],
+  "apps": [
+    {
+      "name": "Rampa",
+      "bundleIdentifier": "com.leboxis.rampa",
+      "developerName": "Leboxis",
+      "subtitle": "Liquid Glass navigation.",
+      "localizedDescription": "An intentionally empty app with a navigation bar built to be looked at: five destinations inside one translucent Liquid Glass lozenge, a tinted lens that slides between them, and a short spring that keeps the whole thing fluid at 120 Hz.\n\nDrag horizontally on the bar to slide between tabs, or tap a destination directly. Everything else is left blank on purpose, so the motion is the product.",
+      "iconURL": "https://raw.githubusercontent.com/Leboxis/rampa/main/docs/app-icon.png",
+      "tintColor": "#2F5BEA",
+      "category": "utilities",
+      "screenshots": [
+        "https://raw.githubusercontent.com/Leboxis/rampa/main/docs/screenshot-light.png"
+      ],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1",
+          "date": "2026-10-29",
+          "downloadURL": "https://github.com/Leboxis/rampa/releases/latest/download/Rampa.ipa",
+          "size": 0,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      }
+    }
+  ],
+  "news": []
+}
