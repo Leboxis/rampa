@@ -27,7 +27,10 @@ final class AppState {
 
     /// Screens currently in multi-select mode. Ticking the first item enters
     /// it, leaving it with nothing ticked or pressing Terminé exits.
-    var selecting: Set<AppTab> = [:]
+    ///
+    /// Spelled `Set<AppTab>()`, not `[:]`: the empty-dictionary literal is not
+    /// a `Set` literal, and the macro expansion of `@Observable` rejects it.
+    var selecting = Set<AppTab>()
 
     /// The asset shown full-screen, if any.
     var viewerItem: MediaItem?

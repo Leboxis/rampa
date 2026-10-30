@@ -77,6 +77,17 @@ struct RootView: View {
         }
     }
 
+    /// A short vertical glide with a fade. Deliberately restrained: the bar's
+    /// travelling lens is the loud moment, the content only has to get out of
+    /// the way.
+    private var stageTransition: AnyTransition {
+        guard !reduceMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .offset(y: 14)),
+            removal: .opacity.combined(with: .offset(y: -14))
+        )
+    }
+
     // MARK: Bottom strip
 
     private var bottomStrip: some View {
