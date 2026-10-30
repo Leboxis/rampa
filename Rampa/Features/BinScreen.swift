@@ -98,9 +98,7 @@ struct BinScreen: View {
                                     state.bin.unstage([item.id])
                                 }
                             } label: {
-                                ThumbnailView(assetID: item.id, target: .grid)
-                                    .aspectRatio(1, contentMode: .fill)
-                                    .clipShape(.rect(cornerRadius: 10, style: .continuous))
+                                SquareThumbnail(assetID: item.id, cornerRadius: 10)
                                     .overlay(alignment: .topTrailing) {
                                         Image(systemName: "xmark")
                                             .font(.system(size: 9, weight: .bold))

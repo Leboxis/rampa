@@ -56,28 +56,39 @@ struct ReviewScreen: View {
     // MARK: Deck
 
     private var deck: some View {
-        ZStack {
-            // The next two cards, stacked behind, so the deck has depth and a
-            // swipe feels like it is revealing something.
-            ForEach(Array(queue.prefix(3).enumerated()).reversed(), id: \.element.id) { index, item in
-                card(item, index: index)
+        GeometryReader { proxy in
+            ZStack {
+                // The next two cards, stacked behind, so the deck has depth and
+                // a swipe feels like it is revealing something. The order is
+                // reversed so index 0 is drawn last, on top.
+                ForEach(Array(queue.prefix(3).enumerated()).reversed(), id: \.element.id) { index, item in
+                    card(item, index: index, size: proxy.size)
+                }
             }
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 20)
         .padding(.bottom, 8)
     }
 
-    private func card(_ item: MediaItem, index: Int) -> some View {
+    private func card(_ item: MediaItem, index: Int, size: CGSize) -> some View {
         let isTop = index == 0
         let offset = isTop ? drag : .zero
         let rotation = isTop ? Double(drag.width / 22) : 0
         let verdict = verdict(for: offset.width)
 
-        return ZStack(alignment: .bottom) {
-            ThumbnailView(assetID: item.id, target: .deck)
-                .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        return ZStack {
+            // Aspect-fit inside an explicit frame: the whole photo is always
+            // visible, letterboxed against a dark card, and it can never be
+            // taller or wider than the space the deck was given.
+            Color.black.opacity(0.06)
 
+            ThumbnailView(assetID: item.id, target: .deck)
+                .aspectRatio(contentMode: .fit)
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        .overlay(alignment: .bottom) {
             // Verdict stamp, driven by the drag itself so the answer is visible
             // before release.
             if let verdict, isTop {
@@ -90,7 +101,8 @@ struct ReviewScreen: View {
                     .padding(.bottom, 18)
                     .transition(.scale.combined(with: .opacity))
             }
-
+        }
+        .overlay(alignment: .topLeading) {
             if let duration = item.durationText {
                 Text(duration)
                     .font(.system(size: 12, weight: .semibold).monospacedDigit())
@@ -98,7 +110,6 @@ struct ReviewScreen: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(.black.opacity(0.55), in: Capsule())
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(12)
             }
         }
@@ -115,7 +126,7 @@ struct ReviewScreen: View {
         .rotationEffect(.degrees(rotation))
         .opacity(isTop ? 1 : 0.55)
         .animation(.smooth(duration: 0.28, extraBounce: 0.05), value: index)
-        .gesture(isTop ? swipe : nil)
+        .highPriorityGesture(isTop ? swipe : nil)
         .accessibilityElement()
         .accessibilityLabel(item.isVideo ? "Vidéo" : "Photo")
         .accessibilityValue(item.creationDate.formatted(date: .abbreviated, time: .shortened))
@@ -123,13 +134,13 @@ struct ReviewScreen: View {
     }
 
     private var swipe: some Gesture {
-        DragGesture(minimumDistance: 8)
+        DragGesture(minimumDistance: 12)
             .onChanged { value in
                 guard !deciding else { return }
                 drag = value.translation
             }
             .onEnded { value in
-                commit(value.predictedEndTranslation.width)
+                commit(value.translation.width)
             }
     }
 
@@ -196,10 +207,18 @@ struct ReviewScreen: View {
             : Verdict(label: "GARDER", tint: Theme.flare)
     }
 
-    private func commit(_ predicted: CGFloat) {
+    /// Applies one verdict.
+    ///
+    /// The verdict is deliberately *not* applied when the finger lifts. Staging
+    /// the asset immediately removes it from `queue`, so the next card becomes
+    /// index 0 while `drag` is still at the fly-out offset — it would inherit
+    /// that offset and appear to be dismissed too, which is what made a single
+    /// swipe skip several media. So: fly the card out first, then clear the
+    /// drag and change state together, without animation.
+    private func commit(_ translation: CGFloat) {
         guard let top = queue.first, !deciding else { return }
 
-        if predicted.magnitude < threshold {
+        guard translation.magnitude >= threshold else {
             // Not far enough: spring back, no state change.
             withAnimation(.smooth(duration: 0.3, extraBounce: 0.15)) {
                 drag = .zero
@@ -208,21 +227,28 @@ struct ReviewScreen: View {
         }
 
         deciding = true
-        let toBin = predicted < 0
+        let toBin = translation < 0
 
-        if toBin {
-            state.stage([top])
-        } else {
-            kept.insert(top.id)
-        }
-
-        withAnimation(.smooth(duration: 0.26, extraBounce: 0)) {
+        withAnimation(.smooth(duration: 0.22, extraBounce: 0)) {
             drag = CGSize(width: toBin ? -600 : 600, height: 0)
         }
 
         Task {
-            try? await Task.sleep(for: .milliseconds(200))
-            drag = .zero
+            try? await Task.sleep(for: .milliseconds(230))
+            guard !Task.isCancelled else { return }
+
+            // One transaction: reset the offset and apply the verdict together,
+            // so the incoming card starts at rest.
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                drag = .zero
+                if toBin {
+                    state.stage([top])
+                } else {
+                    kept.insert(top.id)
+                }
+            }
             deciding = false
         }
     }

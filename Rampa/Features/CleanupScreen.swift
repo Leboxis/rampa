@@ -163,9 +163,7 @@ private struct CleanupCard: View {
             if isExpanded {
                 LazyVGrid(columns: columns, spacing: 2) {
                     ForEach(group.items.prefix(25)) { item in
-                        ThumbnailView(assetID: item.id, target: .grid)
-                            .aspectRatio(1, contentMode: .fill)
-                            .clipShape(.rect(cornerRadius: 6, style: .continuous))
+                        SquareThumbnail(assetID: item.id, cornerRadius: 6)
                     }
                 }
 

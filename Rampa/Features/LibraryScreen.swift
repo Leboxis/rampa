@@ -10,6 +10,9 @@ struct LibraryScreen: View {
     /// drop frames.
     @State private var sections: [MediaSection] = []
 
+    /// Four equal columns. This is only safe because `ThumbnailView` reports no
+    /// intrinsic size: a flexible column sizes itself from its content, so an
+    /// image that claimed its native pixel size would stretch the row.
     private let columns = Array(
         repeating: GridItem(.flexible(), spacing: 2),
         count: 4

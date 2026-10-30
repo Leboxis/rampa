@@ -152,7 +152,6 @@ struct SearchScreen: View {
                         }
                     }
                     .padding(.horizontal, 2)
-
                     Color.clear.frame(height: 110)
                 }
             }

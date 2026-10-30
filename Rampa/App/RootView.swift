@@ -12,30 +12,41 @@ struct RootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            AmbientBackdrop(tab: state.tab)
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                AmbientBackdrop(tab: state.tab)
 
-            stage
-                .id(state.tab)
-                .transition(stageTransition)
-                .padding(.bottom, Theme.Metrics.barHeight + Theme.Metrics.barInset)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // The stage is given an explicit size and clipped. Without this
+                // a single oversized child (an image claiming its native pixel
+                // size, say) expands the ZStack, which pushes the bar off
+                // screen and zooms the whole app.
+                stage
+                    .id(state.tab)
+                    .transition(stageTransition)
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height - Theme.Metrics.barHeight - Theme.Metrics.barInset
+                    )
+                    .clipped()
 
-            GlassTabBar(
-                selection: state.tab,
-                badge: state.stagedCount
-            ) { tab in
-                guard tab != state.tab else { return }
-                // One curve for everything that moves: the lens, the stage and
-                // the ambient pool are three views of the same state change.
-                if reduceMotion {
-                    state.tab = tab
-                } else {
-                    withAnimation(Theme.Motion.pill) { state.tab = tab }
+                GlassTabBar(
+                    selection: state.tab,
+                    badge: state.stagedCount
+                ) { tab in
+                    guard tab != state.tab else { return }
+                    // One curve for everything that moves: the lens, the stage
+                    // and the ambient pool are three views of the same state
+                    // change.
+                    if reduceMotion {
+                        state.tab = tab
+                    } else {
+                        withAnimation(Theme.Motion.pill) { state.tab = tab }
+                    }
                 }
+                .padding(.horizontal, Theme.Metrics.barInset)
+                .padding(.bottom, 6)
             }
-            .padding(.horizontal, Theme.Metrics.barInset)
-            .padding(.bottom, 6)
+            .frame(width: proxy.size.width, height: proxy.size.height)
         }
         .background(Theme.canvas)
         .environment(state)
