@@ -1,17 +1,42 @@
 # Rampa
 
-An intentionally empty iOS app whose only real subject is its navigation bar.
+An iOS app for actually emptying your camera roll, wrapped around a navigation
+bar worth looking at.
 
 Five destinations live inside a single translucent Liquid Glass lozenge that
 floats above the home indicator. A tinted lens travels between them — tap a
-destination, or drag horizontally on the bar and flick. The content behind is a
-soft pool of accent light that drifts as you move, because a glass surface over
-flat colour reads as a grey pill.
+destination, or drag horizontally on the bar and flick. Each one does a real job.
 
-Built with SwiftUI for iOS 27, running on `xcode-27` GitHub runners, shipped as
-an unsigned `.ipa` with a SideStore source.
+| Tab | What it does |
+|---|---|
+| **Photos** | The whole library, grouped by month, year, size or type, with pinned headers |
+| **Revue** | Swipe triage: left stages to the bin, right keeps |
+| **Trier** | Cleanup proposals — old screenshots, heavy videos, bursts, tiny images |
+| **Chercher** | Search over date, month, year, kind, size, screenshots, favourites |
+| **Panier** | The bin, and the only place anything is ever deleted |
 
-## The bar
+## The four rails
+
+Deleting a photo is irreversible in almost every app. Here it takes four
+deliberate steps, and the fourth is not even in this app:
+
+1. **Staging.** Nothing is deleted from a tap. An asset enters the bin, where it
+   sits until you say otherwise. Undo is a tap on the item.
+2. **Hold to confirm.** The delete button is not a button, it is a 1.4 s hold
+   with a ring closing over it. Release early and nothing happens — no dialog,
+   no penalty, no state change.
+3. **Plain language.** A sheet states the count and exactly what will happen,
+   before anything is asked of the user's face.
+4. **Biometrics.** `LAContext` with `deviceOwnerAuthentication` — Face ID, Touch
+   ID, or the passcode. If the device has neither configured, the app **refuses
+   to delete** rather than silently downgrading the guard.
+
+Only then does PhotoKit run `deleteAssets`, which moves the assets to the
+system's *Recently Deleted* album. Apple keeps them there for 30 days. The app
+never calls a permanent-delete API, because PhotoKit does not expose one — and
+that is the last rail: the final authority is iOS itself.
+
+## Motion
 
 | | |
 |---|---|
@@ -31,9 +56,26 @@ The lens is *not* glass. Glass cannot sample other glass, so a second glass
 surface inside the bar muddies the material — it is a tinted capsule with a rim
 instead, which is also what the system does for its own segmented glass.
 
-Everything degrades: `accessibilityReduceMotion` swaps every spring for a 0.16 s
-ease and drops the lens drag, `accessibilityReduceTransparency` removes the tint,
-and anything below iOS 26 falls back to `.ultraThinMaterial`.
+## Performance
+
+The grid is the part that has to hold 120 Hz, so:
+
+- Thumbnails are downsampled to their exact drawn size. A 48 MP decode is over
+  200 MB; a 160 pt cell is a few KB of pixels.
+- The PhotoKit request runs in a `nonisolated` helper, so no decode touches the
+  main actor and no `PHAsset` crosses an actor boundary.
+- `NSCache` is budgeted in real bitmap bytes and drops everything under memory
+  pressure — re-decoding beats being jetsammed mid-scroll.
+- Grouping, sorting and search run in `Task.detached`, keyed on their inputs,
+  never inside a view body.
+- The next 24 thumbnails are prefetched as you scroll.
+
+## Search, honestly
+
+PhotoKit gives third-party apps no content, caption or place metadata. So the
+search covers what the app legitimately has — date, month, year, kind, size
+bucket, screenshots, favourites — and the screen says so instead of letting
+someone type "plage" and get a silent empty grid.
 
 ## Install
 
@@ -49,6 +91,10 @@ The source manifest lives at [`docs/repo.json`](docs/repo.json) and is served by
 GitHub Pages at <https://leboxis.github.io/rampa/>. Its download URL points at
 `releases/latest/download/Rampa.ipa`, which always resolves to the newest
 release, so the manifest never needs editing when a build ships.
+
+> **Note on permissions.** Rampa asks for full photo library access — a sorting
+> app that can only see three photos cannot sort anything. Nothing leaves the
+> device: there is no network code in this app at all.
 
 ## Build
 
@@ -67,17 +113,24 @@ publishes it as a GitHub Release. The release step is idempotent, so re-running
 on a moved tag replaces the asset instead of failing. To cut a release:
 
 ```sh
-git tag v1.0.0 && git push origin v1.0.0
+git tag v2.0.0 && git push origin v2.0.0
 ```
+
+The project uses file-system-synchronized groups, so adding a Swift file under
+`Rampa/` needs no `project.pbxproj` edit.
 
 ## Layout
 
 ```
 Rampa/
-  App/            RampaApp, RootView
+  App/            RampaApp, RootView, AppState
   Navigation/     AppTab, GlassTabBar
-  DesignSystem/   Theme, GlassSurface, PressScaleStyle, AmbientBackdrop
-  Features/       TabStageView
+  DesignSystem/   Theme, GlassSurface, PressScaleStyle, AmbientBackdrop,
+                  HoldToConfirmButton
+  Media/          MediaItem, MediaLibrary, ThumbnailLoader, ThumbnailView,
+                  MediaCell, MediaAnalyzer, DeletionGuard
+  Features/       LibraryScreen, ReviewScreen, CleanupScreen,
+                  SearchScreen, BinScreen
   Resources/      Assets.xcassets
 Support/          Info.plist
 docs/             repo.json, index.html, source art

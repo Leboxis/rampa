@@ -9,9 +9,6 @@ struct MediaCell: View {
     let isSelected: Bool
     let selectionMode: Bool
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pressed = false
-
     var body: some View {
         ZStack(alignment: .topTrailing) {
             ThumbnailView(assetID: item.id, target: .grid)
@@ -61,13 +58,10 @@ struct MediaCell: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .scaleEffect(pressed && !reduceMotion ? 0.94 : 1)
-        .animation(.smooth(duration: 0.18, extraBounce: 0.2), value: pressed)
         .animation(.smooth(duration: 0.22), value: isStaged)
         .animation(.smooth(duration: 0.22), value: isSelected)
-        .onLongPressGesture(minimumDuration: 0.01, pressing: { pressing in
-            pressed = pressing
-        }, perform: {})
+        // No long-press gesture here: it would claim the touch and swallow the
+        // enclosing Button's tap. The pressed state is not worth losing taps.
         .accessibilityElement()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityAddTraits(isSelected ? [.isImage, .isSelected] : .isImage)

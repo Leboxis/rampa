@@ -1,42 +1,48 @@
-{
-  "name": "Rampa",
-  "identifier": "com.leboxis.rampa.source",
-  "subtitle": "Liquid Glass navigation shell for iOS.",
-  "description": "Unsigned builds of Rampa, a SwiftUI shell with a floating Liquid Glass navigation bar: five destinations, a sliding lens, and smooth motion. Install with SideStore, LiveContainer, or TrollStore.",
-  "iconURL": "https://leboxis.github.io/rampa/source-icon.png",
-  "headerURL": "https://leboxis.github.io/rampa/source-header.png",
-  "website": "https://github.com/Leboxis/rampa",
-  "tintColor": "#2F5BEA",
-  "featuredApps": [
-    "com.leboxis.rampa"
-  ],
-  "apps": [
-    {
-      "name": "Rampa",
-      "bundleIdentifier": "com.leboxis.rampa",
-      "developerName": "Leboxis",
-      "subtitle": "Liquid Glass navigation.",
-      "localizedDescription": "An intentionally empty app with a navigation bar built to be looked at: five destinations inside one translucent Liquid Glass lozenge, a tinted lens that slides between them, and a short spring that keeps the whole thing fluid at 120 Hz.\n\nDrag horizontally on the bar to slide between tabs, or tap a destination directly. Everything else is left blank on purpose, so the motion is the product.",
-      "iconURL": "https://leboxis.github.io/rampa/app-icon.png",
-      "tintColor": "#2F5BEA",
-      "category": "utilities",
-      "screenshots": [
-        "https://leboxis.github.io/rampa/app-icon.png"
-      ],
-      "versions": [
-        {
-          "version": "1.0.0",
-          "buildVersion": "1",
-          "date": "2026-10-29",
-          "downloadURL": "https://github.com/Leboxis/rampa/releases/latest/download/Rampa.ipa",
-          "minOSVersion": "17.0"
-        }
-      ],
-      "appPermissions": {
-        "entitlements": [],
-        "privacy": {}
-      }
-    }
-  ],
-  "news": []
+﻿{
+    "name":  "Rampa",
+    "identifier":  "com.leboxis.rampa.source",
+    "subtitle":  "Liquid Glass navigation shell for iOS.",
+    "description":  "Unsigned builds of Rampa, a SwiftUI shell with a floating Liquid Glass navigation bar: five destinations, a sliding lens, and smooth motion. Install with SideStore, LiveContainer, or TrollStore.",
+    "iconURL":  "https://leboxis.github.io/rampa/source-icon.png",
+    "headerURL":  "https://leboxis.github.io/rampa/source-header.png",
+    "website":  "https://github.com/Leboxis/rampa",
+    "tintColor":  "#2F5BEA",
+    "featuredApps":  [
+                         "com.leboxis.rampa"
+                     ],
+    "apps":  [
+                 {
+                     "name":  "Rampa",
+                     "bundleIdentifier":  "com.leboxis.rampa",
+                     "developerName":  "Leboxis",
+                     "subtitle":  "Triez votre photothèque.",
+                     "localizedDescription":  "Rampa trie votre photothèque depuis cinq onglets : la bibliothèque groupée par mois, année, taille ou type ; une revue en balayage ; des propositions de nettoyage ; une recherche par date, type et taille ; et un panier.\n\nRien ne se supprime d\u0027un appui. Un élément doit d\u0027abord entrer dans le panier, puis survivre à un maintien de 1,4 s, puis passer Face ID. PhotoKit le déplace alors dans « Récents supprimés », où Apple le garde 30 jours.",
+                     "iconURL":  "https://leboxis.github.io/rampa/app-icon.png",
+                     "tintColor":  "#2F5BEA",
+                     "category":  "utilities",
+                     "screenshots":  [
+                                         "https://leboxis.github.io/rampa/app-icon.png"
+                                     ],
+                     "versions":  [
+                                      {
+                                          "version":  "2.0.0",
+                                          "buildVersion":  "2",
+                                          "date":  "2026-10-30",
+                                          "downloadURL":  "https://github.com/Leboxis/rampa/releases/latest/download/Rampa.ipa",
+                                          "minOSVersion":  "17.0"
+                                      }
+                                  ],
+                     "appPermissions":  {
+                                            "entitlements":  [
+
+                                                             ],
+                                            "privacy":  {
+
+                                                        }
+                                        }
+                 }
+             ],
+    "news":  [
+
+             ]
 }
