@@ -78,9 +78,6 @@ final class MediaLibrary {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.includeHiddenAssets = false
-        // Trashed assets are excluded: PhotoKit keeps them in the library for
-        // 30 days, and the app must never show them as if they were still here.
-        options.includeTrashedAssets = false
 
         let result = PHAsset.fetchAssets(with: options)
         var snapshot: [MediaItem] = []
@@ -88,12 +85,11 @@ final class MediaLibrary {
 
         result.enumerateObjects { asset, _, _ in
             guard let date = asset.creationDate else { return }
-            let kind: MediaKind = asset.mediaType == .video ? .video : .photo
             // Audio-only and unknown media are not photos or videos.
             guard asset.mediaType == .image || asset.mediaType == .video else { return }
 
+            let kind: MediaKind = asset.mediaType == .video ? .video : .photo
             let screenCapture = asset.mediaSubtypes.contains(.photoScreenshot)
-                || asset.mediaSubtypes.contains(.photoScreenRecording)
 
             snapshot.append(
                 MediaItem(
@@ -131,12 +127,6 @@ final class MediaLibrary {
         }
         changeObserver = observer
         PHPhotoLibrary.shared().register(observer)
-    }
-
-    deinit {
-        if let changeObserver {
-            PHPhotoLibrary.shared().unregisterChangeObserver(changeObserver)
-        }
     }
 }
 
