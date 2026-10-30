@@ -2,13 +2,13 @@ import Photos
 import SwiftUI
 import UIKit
 
-/// Caches downsampled thumbnails for the grid and the review deck.
+/// Caches downsampled images for the grid, the review deck and the viewer.
 ///
 /// Two things matter here and both are about staying smooth at 120 Hz: every
-/// thumbnail is downsampled to the exact point size it will be drawn at (a
-/// full-resolution 48 MP decode is over 200 MB), and the decode happens off the
-/// main actor. `NSCache` drops the whole thing under memory pressure, which is
-/// the right trade: re-decoding is cheaper than being jetsammed mid-scroll.
+/// image is downsampled to the exact size it will be drawn at (a full-resolution
+/// 48 MP decode is over 200 MB), and the decode happens off the main actor.
+/// `NSCache` drops the whole thing under memory pressure, which is the right
+/// trade: re-decoding is cheaper than being jetsammed mid-scroll.
 ///
 /// The class is `@MainActor` because it publishes to the UI, but the PhotoKit
 /// work is handed to a `nonisolated` helper so no `PHAsset` ever crosses an
@@ -18,15 +18,20 @@ final class ThumbnailLoader {
 
     static let shared = ThumbnailLoader()
 
-    /// Which surface a thumbnail is for. Determines the decode size.
-    enum Target {
+    /// Which surface an image is for. Determines the decode size.
+    enum Target: Hashable {
+        /// Square grid cell.
         case grid
+        /// The review deck and the full-screen viewer.
         case deck
-        case strip
     }
 
     private let cache = NSCache<NSString, UIImage>()
-    private let manager = PHCachingImageManager()
+
+    /// One shared caching manager, kept alive: `startCachingImages` on a
+    /// manager that is deallocated immediately does nothing at all, which is
+    /// what made prefetching a no-op.
+    private nonisolated static let prefetcher = PHCachingImageManager()
 
     private init() {
         cache.countLimit = 900
@@ -38,48 +43,69 @@ final class ThumbnailLoader {
     nonisolated static func pointSize(for target: Target) -> CGSize {
         switch target {
         case .grid: CGSize(width: 160, height: 160)
-        case .deck: CGSize(width: 900, height: 900)
-        case .strip: CGSize(width: 88, height: 88)
+        case .deck: CGSize(width: 1200, height: 1200)
         }
     }
 
-    private func key(for id: String, target: Target, scale: CGFloat) -> NSString {
+    private func key(
+        for id: String,
+        target: Target,
+        scale: CGFloat,
+        fill: ThumbnailFill
+    ) -> NSString {
         let size = Self.pointSize(for: target)
-        return "\(id)|\(Int(size.width))|\(Int(scale))" as NSString
+        let mode = fill == .fit ? "fit" : "fill"
+        return "\(id)|\(Int(size.width))|\(Int(scale))|\(mode)" as NSString
     }
 
-    /// Returns a cached thumbnail if present, without touching the network or disk.
-    func cached(id: String, target: Target, scale: CGFloat) -> UIImage? {
-        cache.object(forKey: key(for: id, target: target, scale: scale))
+    /// Returns a cached image if present, without touching the network or disk.
+    func cached(id: String, target: Target, scale: CGFloat, fill: ThumbnailFill = .fill) -> UIImage? {
+        cache.object(forKey: key(for: id, target: target, scale: scale, fill: fill))
     }
 
-    /// Loads and downsamples one thumbnail.
+    /// Loads and downsamples one image.
+    ///
+    /// - Parameter fill: `.fill` crops to the target's square; `.fit` keeps the
+    ///   whole frame inside it. The viewer and the deck pass `.fit`, because a
+    ///   cropped photo is the one thing they must not show.
     func image(
         for assetID: String,
         target: Target,
-        scale: CGFloat
+        scale: CGFloat,
+        fill: ThumbnailFill = .fill
     ) async -> UIImage? {
-        let cacheKey = key(for: assetID, target: target, scale: scale)
+        let cacheKey = key(for: assetID, target: target, scale: scale, fill: fill)
         if let hit = cache.object(forKey: cacheKey) { return hit }
 
         let pointSize = Self.pointSize(for: target)
         let pixel = CGSize(width: pointSize.width * scale, height: pointSize.height * scale)
 
-        let image = await Self.requestImage(assetID: assetID, pixelSize: pixel)
-        guard let image else { return nil }
+        guard let image = await Self.requestImage(
+            assetID: assetID,
+            pixelSize: pixel,
+            contentMode: fill == .fit ? .aspectFit : .aspectFill
+        ) else { return nil }
 
-        // `image.size` is in points; cost is the real byte count of the backing
-        // bitmap, which is what NSCache should budget against.
-        let cost = Int(image.size.width * image.size.height * scale * scale * 4)
-        cache.setObject(image, forKey: cacheKey, cost: cost)
+        store(image, forKey: cacheKey)
         return image
+    }
+
+    /// `NSCache` should budget against real bitmap bytes. The previous version
+    /// multiplied by the *view's* scale, which over-charged every entry by up to
+    /// 9× and evicted the cache constantly.
+    private func store(_ image: UIImage, forKey key: NSString) {
+        let pixelsWide = image.size.width * image.scale
+        let pixelsHigh = image.size.height * image.scale
+        let cost = Int(pixelsWide * pixelsHigh * 4)
+        cache.setObject(image, forKey: key, cost: cost)
     }
 
     /// The PhotoKit call, isolated away from the main actor so the decode does
     /// not block scrolling.
     private nonisolated static func requestImage(
         assetID: String,
-        pixelSize: CGSize
+        pixelSize: CGSize,
+        contentMode: PHImageContentMode
     ) async -> UIImage? {
         await withCheckedContinuation { continuation in
             let options = PHImageRequestOptions()
@@ -96,13 +122,18 @@ final class ThumbnailLoader {
                 return
             }
 
-            let manager = PHImageManager.default()
-            manager.requestImage(
+            // PhotoKit may call this handler more than once (a degraded image,
+            // then the final one). Resuming a continuation twice traps, so the
+            // first result wins and the rest are ignored.
+            let hasResumed = ResumeFlag()
+
+            PHImageManager.default().requestImage(
                 for: asset,
                 targetSize: pixelSize,
-                contentMode: .aspectFill,
+                contentMode: contentMode,
                 options: options
             ) { result, _ in
+                guard hasResumed.claim() else { return }
                 continuation.resume(returning: result)
             }
         }
@@ -127,7 +158,7 @@ final class ThumbnailLoader {
             options.resizeMode = .fast
             options.isNetworkAccessAllowed = true
 
-            PHCachingImageManager().startCachingImages(
+            Self.prefetcher.startCachingImages(
                 for: list,
                 targetSize: pixel,
                 contentMode: .aspectFill,

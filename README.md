@@ -15,6 +15,41 @@ destination, or drag horizontally on the bar and flick. Each one does a real job
 | **Chercher** | Search over date, month, year, kind, size, screenshots, favourites |
 | **Panier** | The bin, and the only place anything is ever deleted |
 
+## Looking, then acting
+
+A tap on a photo used to stage it for deletion — a startling thing for a tap on
+a picture to do, and it made the library useless for actually *looking* at your
+photos. The gestures now follow the grammar every photo app already taught you:
+
+| Gesture | Result |
+|---|---|
+| Tap | Opens the viewer: the whole photo, uncropped, with its actions underneath |
+| Long press | A context menu — favourite, bin, select |
+| Tap in selection mode | Ticks the photo |
+
+The viewer is the point. It shows the asset at its true aspect ratio (the deck
+used to crop every portrait shot to a square), plays videos in place, and states
+the facts PhotoKit is willing to share — date, dimensions, weight, duration —
+with a line saying plainly that Apple does not hand over content or place.
+
+## Multi-select
+
+Ticking anything puts the screen in selection mode, and the navigation bar is
+replaced — not covered — by a selection bar: a select-all control, a live count,
+the actions that screen supports, and Terminé. Selection is tracked **per tab**,
+so leaving a screen abandons its ticks instead of leaving a bar counting photos
+you can no longer see.
+
+The bar only ever offers what is true of that screen. Library, search and
+cleanup get *favourite* and *mettre au panier*; the bin gets *retirer du panier*
+and nothing else, because staging what is already staged would be a loop.
+
+## Undo
+
+Staging, un-staging and emptying the bin all offer an undo in a banner above the
+bar. "Vider" used to be a one-way door. Undo restores the exact previous order,
+so a multi-item undo does not reverse the bin.
+
 ## The four rails
 
 Deleting a photo is irreversible in almost every app. Here it takes four
@@ -64,11 +99,18 @@ The grid is the part that has to hold 120 Hz, so:
   200 MB; a 160 pt cell is a few KB of pixels.
 - The PhotoKit request runs in a `nonisolated` helper, so no decode touches the
   main actor and no `PHAsset` crosses an actor boundary.
-- `NSCache` is budgeted in real bitmap bytes and drops everything under memory
-  pressure — re-decoding beats being jetsammed mid-scroll.
+- `NSCache` is budgeted in real bitmap bytes — the cost was previously
+  multiplied by the *view's* scale, which over-charged every entry by up to 9×
+  and evicted the cache constantly.
 - Grouping, sorting and search run in `Task.detached`, keyed on their inputs,
   never inside a view body.
-- The next 24 thumbnails are prefetched as you scroll.
+- The library fetch itself is `nonisolated`: enumerating 20 000 assets on the
+  main actor at launch was a visible hitch.
+- Each grid keeps an id→index map built once per list. The prefetcher used to
+  call `firstIndex(where:)` per cell that appeared, which is O(n²) per screen.
+- The next 24 thumbnails are prefetched as you scroll, through one long-lived
+  `PHCachingImageManager` — the old one was created and dropped per call, so it
+  never actually cached anything.
 
 ## Search, honestly
 
@@ -126,9 +168,10 @@ Rampa/
   App/            RampaApp, RootView, AppState
   Navigation/     AppTab, GlassTabBar
   DesignSystem/   Theme, GlassSurface, PressScaleStyle, AmbientBackdrop,
-                  HoldToConfirmButton
-  Media/          MediaItem, MediaLibrary, ThumbnailLoader, ThumbnailView,
-                  MediaCell, MediaAnalyzer, DeletionGuard
+                  HoldToConfirmButton, ScreenChrome, SelectionBar
+  Media/          MediaItem, MediaTypes, MediaLibrary, MediaActions,
+                  ThumbnailLoader, ThumbnailView, MediaCell, MediaGrid,
+                  MediaViewer, MediaAnalyzer, DeletionGuard
   Features/       LibraryScreen, ReviewScreen, CleanupScreen,
                   SearchScreen, BinScreen
   Resources/      Assets.xcassets

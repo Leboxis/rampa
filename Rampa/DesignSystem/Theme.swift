@@ -46,6 +46,13 @@ enum Theme {
 
         /// Inset of the active pill inside the bar.
         static let pillInset: CGFloat = 4
+
+        /// Horizontal padding of screen content. One value, used everywhere,
+        /// so titles, chips and grids line up across tabs.
+        static let gutter: CGFloat = 16
+
+        /// Gap between two grid cells.
+        static let gridSpacing: CGFloat = 2
     }
 
     // MARK: Motion

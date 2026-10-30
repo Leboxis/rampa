@@ -1,22 +1,18 @@
 import SwiftUI
 
 /// The library: every asset, grouped by month, year, size or type.
+///
+/// A tap opens the viewer, a long press opens the cell's menu, and the header's
+/// trailing menu switches the sort. Before this, a tap staged the photo for
+/// deletion and the sort order was unreachable — `state.sort` existed but no
+/// control ever wrote to it.
 struct LibraryScreen: View {
     @Environment(AppState.self) private var state
-    @Environment(\.displayScale) private var displayScale
 
     /// Derived sections. Computed in a `.task` keyed on the inputs, never in
-    /// `body` — grouping 20k assets on every keystroke of the tab bar would
+    /// `body` — grouping 20 000 assets on every keystroke of the tab bar would
     /// drop frames.
     @State private var sections: [MediaSection] = []
-
-    /// Four equal columns. This is only safe because `ThumbnailView` reports no
-    /// intrinsic size: a flexible column sizes itself from its content, so an
-    /// image that claimed its native pixel size would stretch the row.
-    private let columns = Array(
-        repeating: GridItem(.flexible(), spacing: 2),
-        count: 4
-    )
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,43 +28,47 @@ struct LibraryScreen: View {
             }
         }
         .task {
+            // Only the permission/fetch bootstrap here. Deriving the sections
+            // is `.task(id:)`'s job, and doing it in both places ran the whole
+            // grouping twice on launch.
             await state.library.start()
+        }
+        // One key for every input that changes the sections. Three separate
+        // `.task(id:)` modifiers used to run `recompute()` concurrently on
+        // launch and race to assign the result.
+        .task(id: derivationKey) {
             await recompute()
         }
-        .task(id: state.library.items.count) {
-            await recompute()
-        }
-        .task(id: state.grouping) {
-            await recompute()
-        }
-        .task(id: state.sort) {
-            await recompute()
-        }
-        .task(id: state.bin.staged.count) {
-            await recompute()
-        }
+    }
+
+    /// Everything `recompute()` depends on, in one comparable value.
+    ///
+    /// The staged set is folded in by identity, not by count: staging one photo
+    /// while another leaves the bin keeps the count identical but changes which
+    /// assets are browsable.
+    private var derivationKey: String {
+        [
+            String(state.library.revision),
+            state.grouping.rawValue,
+            state.sort.rawValue,
+            state.bin.staged.map(\.id).sorted().joined(separator: ",")
+        ].joined(separator: "|")
     }
 
     // MARK: Header
 
     private var header: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Bibliothèque")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-
-                Spacer()
-
-                Text("\(state.browsableItems.count)")
-                    .font(.system(size: 15, weight: .medium).monospacedDigit())
-                    .foregroundStyle(Theme.inkSecondary)
-                    .contentTransition(.numericText())
+        VStack(alignment: .leading, spacing: 10) {
+            ScreenHeader(title: "Bibliothèque") {
+                HStack(spacing: 10) {
+                    sortMenu
+                    HeaderCount(value: state.browsableCount)
+                }
             }
 
             HStack(spacing: 8) {
                 ForEach(Grouping.allCases) { option in
-                    GroupChip(
+                    Chip(
                         title: option.title,
                         symbol: option.symbol,
                         isOn: state.grouping == option
@@ -78,12 +78,44 @@ struct LibraryScreen: View {
                         }
                     }
                 }
+
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Metrics.gutter)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
         .padding(.bottom, 10)
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker("Trier par", selection: sortBinding) {
+                ForEach(SortOrder.allCases) { order in
+                    Label(order.title, systemImage: order.symbol)
+                        .tag(order)
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: state.sort.symbol)
+                    .font(.system(size: 11, weight: .bold))
+                Text(state.sort.shortTitle)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(Theme.inkSecondary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Theme.ink.opacity(0.05), in: Capsule(style: .continuous))
+        }
+        .accessibilityLabel("Trier : \(state.sort.title)")
+    }
+
+    private var sortBinding: Binding<SortOrder> {
+        Binding(
+            get: { state.sort },
+            set: { newValue in
+                withAnimation(Theme.Motion.pill) { state.sort = newValue }
+            }
+        )
     }
 
     // MARK: Content
@@ -93,65 +125,32 @@ struct LibraryScreen: View {
             LazyVStack(alignment: .leading, spacing: 18, pinnedViews: [.sectionHeaders]) {
                 if state.library.isLimited {
                     LimitedBanner()
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, Theme.Metrics.gutter)
                 }
 
                 if sections.isEmpty {
-                    EmptyLibrary()
-                        .padding(.top, 60)
+                    EmptyStateView(
+                        symbol: "photo.on.rectangle.angled",
+                        title: "Aucune photo.",
+                        message: "Votre photothèque apparaîtra ici dès qu'elle contiendra quelque chose."
+                    )
+                    .padding(.top, 40)
+                    .padding(.bottom, 40)
                 }
 
                 ForEach(sections) { section in
                     Section {
-                        grid(for: section.items)
+                        MediaGrid(items: section.items, tab: .library)
                     } header: {
-                        SectionHeader(section: section)
+                        SectionHeader(title: section.title, caption: section.caption)
                     }
                 }
 
-                // Room for the floating bar so the last row is reachable.
-                Color.clear.frame(height: 110)
+                ScrollBottomInset()
             }
         }
         .scrollIndicators(.hidden)
-    }
-
-    private func grid(for items: [MediaItem]) -> some View {
-        LazyVGrid(columns: columns, spacing: 2) {
-            ForEach(items) { item in
-                Button {
-                    if state.isSelecting {
-                        withAnimation(.smooth(duration: 0.2)) {
-                            state.toggleSelection(item.id)
-                        }
-                    } else {
-                        state.stage([item])
-                    }
-                } label: {
-                    MediaCell(
-                        item: item,
-                        isStaged: false,
-                        isSelected: state.selected.contains(item.id),
-                        selectionMode: state.isSelecting
-                    )
-                }
-                .buttonStyle(.plain)
-                .onAppear {
-                    prefetchNeighbours(of: item, in: items)
-                }
-            }
-        }
-        .padding(.horizontal, 2)
-    }
-
-    /// Warms the next two dozen thumbnails so a fast scroll does not outrun
-    /// the decoder.
-    private func prefetchNeighbours(of item: MediaItem, in items: [MediaItem]) {
-        guard let index = items.firstIndex(where: { $0.id == item.id }) else { return }
-        let upper = min(index + 24, items.count)
-        guard upper > index + 1 else { return }
-        let ids = items[(index + 1)..<upper].map(\.id)
-        ThumbnailLoader.shared.prefetch(ids: ids, target: .grid, scale: displayScale)
+        .scrollDismissesKeyboard(.immediately)
     }
 
     // MARK: Derivation
@@ -165,67 +164,12 @@ struct LibraryScreen: View {
             MediaAnalyzer.sections(items, by: grouping, sort: sort)
         }.value
 
-        withAnimation(Theme.Motion.pill) {
-            sections = result
-        }
+        guard !Task.isCancelled else { return }
+        sections = result
     }
 }
 
 // MARK: - Pieces
-
-/// A pill toggle for the grouping axis.
-private struct GroupChip: View {
-    let title: String
-    let symbol: String
-    let isOn: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold))
-            }
-            .foregroundStyle(isOn ? Theme.flare : Theme.inkSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background {
-                Capsule(style: .continuous)
-                    .fill(isOn ? Theme.flare.opacity(0.14) : Color.clear)
-            }
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(isOn ? Theme.flare.opacity(0.4) : Theme.hairline, lineWidth: 1)
-            }
-        }
-        .buttonStyle(PressScaleStyle())
-        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-    }
-}
-
-/// A pinned month/size header.
-private struct SectionHeader: View {
-    let section: MediaSection
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(section.title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-
-            Spacer()
-
-            Text(section.caption)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.inkSecondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.regularMaterial)
-    }
-}
 
 /// Shown when the user granted limited library access.
 private struct LimitedBanner: View {
@@ -260,55 +204,30 @@ private struct LimitedBanner: View {
     }
 }
 
-/// Shown when the library genuinely has nothing in it.
-private struct EmptyLibrary: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(Theme.flare)
-            Text("Aucune photo.")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("Votre photothèque apparaîtra ici dès qu'elle contiendra quelque chose.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 32)
-        .frame(maxWidth: .infinity)
-    }
-}
-
 /// Shown when access was refused, with a way to fix it.
 struct PermissionWall: View {
+    @Environment(AppState.self) private var state
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.system(size: 38, weight: .semibold))
-                .foregroundStyle(Theme.inkSecondary)
-
-            Text("Accès refusé")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-
-            Text("Rampa a besoin de lire votre photothèque pour la trier. Autorisez l'accès dans Réglages.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Ouvrir Réglages") {
+        EmptyStateView(
+            symbol: "lock.shield",
+            title: "Accès refusé",
+            message: "Rampa a besoin de lire votre photothèque pour la trier. Autorisez l'accès dans Réglages.",
+            tint: Theme.inkSecondary,
+            action: .init(title: "Ouvrir Réglages") {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     openURL(url)
                 }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.flare)
-            .padding(.top, 4)
-        }
-        .padding(.horizontal, 32)
+        )
         .frame(maxHeight: .infinity)
+        .task(id: scenePhase) {
+            // Returning from Settings used to leave this wall up even after
+            // access had been granted.
+            guard scenePhase == .active else { return }
+            await state.library.refreshAccess()
+        }
     }
 }

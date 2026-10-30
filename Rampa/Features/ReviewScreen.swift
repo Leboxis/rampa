@@ -4,20 +4,20 @@ import SwiftUI
 ///
 /// The deck never deletes. "Mettre au panier" is just a different bucket from
 /// "Garder", and both are one flick away from being undone.
+///
+/// The deck now shows the whole photo. It used to use `.scaledToFill()` inside
+/// an explicit frame, which cropped every portrait shot to a square in the one
+/// screen whose entire job is looking at a photo carefully.
 struct ReviewScreen: View {
     @Environment(AppState.self) private var state
 
     @State private var drag: CGSize = .zero
     @State private var kept: Set<MediaItem.ID> = []
     @State private var deciding = false
+    @State private var queue: [MediaItem] = []
 
     /// Distance past which a flick commits.
     private let threshold: CGFloat = 110
-
-    private var queue: [MediaItem] {
-        let staged = Set(state.bin.staged.map(\.id))
-        return state.library.items.filter { !staged.contains($0.id) && !kept.contains($0.id) }
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,26 +31,30 @@ struct ReviewScreen: View {
             }
         }
         .task { await state.library.start() }
+        .task(id: queueKey) { rebuildQueue() }
+    }
+
+    /// The deck used to rebuild its queue inside a computed property, which
+    /// meant filtering the whole library on every frame of a drag. It is built
+    /// once per input change instead.
+    ///
+    /// `kept` is folded in by identity, not by count: "Garder" on one card and
+    /// a change elsewhere can leave the count identical while the queue
+    /// genuinely differs.
+    private var queueKey: String {
+        [
+            String(state.library.revision),
+            state.bin.staged.map(\.id).sorted().joined(separator: ","),
+            kept.sorted().joined(separator: ",")
+        ].joined(separator: "|")
     }
 
     // MARK: Header
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Revue")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-
-            Spacer()
-
-            Text("\(queue.count) restantes")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.inkSecondary)
-                .contentTransition(.numericText())
+        ScreenHeader(title: "Revue") {
+            HeaderCount(value: queue.count, suffix: "restantes")
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
     }
 
     // MARK: Deck
@@ -78,13 +82,11 @@ struct ReviewScreen: View {
         let verdict = verdict(for: offset.width)
 
         return ZStack {
-            // Aspect-fit inside an explicit frame: the whole photo is always
-            // visible, letterboxed against a dark card, and it can never be
-            // taller or wider than the space the deck was given.
-            Color.black.opacity(0.06)
+            // A dark card behind the photo, so a letterboxed portrait still
+            // reads as a deliberate frame rather than a hole.
+            Color.black.opacity(0.82)
 
-            ThumbnailView(assetID: item.id, target: .deck)
-                .aspectRatio(contentMode: .fit)
+            ThumbnailView(assetID: item.id, target: .deck, fill: .fit)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(.rect(cornerRadius: 22, style: .continuous))
@@ -113,6 +115,16 @@ struct ReviewScreen: View {
                     .padding(12)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if item.isFavorite {
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.danger)
+                    .padding(8)
+                    .background(.black.opacity(0.4), in: Circle())
+                    .padding(10)
+            }
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(
@@ -127,10 +139,18 @@ struct ReviewScreen: View {
         .opacity(isTop ? 1 : 0.55)
         .animation(.smooth(duration: 0.28, extraBounce: 0.05), value: index)
         .highPriorityGesture(isTop ? swipe : nil)
+        .onTapGesture {
+            // Looking closer is a legitimate thing to want mid-review, and it
+            // does not change the verdict.
+            if isTop { state.openViewer(item) }
+        }
         .accessibilityElement()
         .accessibilityLabel(item.isVideo ? "Vidéo" : "Photo")
         .accessibilityValue(item.creationDate.formatted(date: .abbreviated, time: .shortened))
         .accessibilityHint("Glissez à gauche pour mettre au panier, à droite pour garder.")
+        .accessibilityAction(named: "Afficher en grand") {
+            state.openViewer(item)
+        }
     }
 
     private var swipe: some Gesture {
@@ -248,36 +268,34 @@ struct ReviewScreen: View {
                 } else {
                     kept.insert(top.id)
                 }
+                queue.removeFirst()
             }
             deciding = false
+        }
+    }
+
+    // MARK: Queue
+
+    private func rebuildQueue() {
+        let staged = Set(state.bin.staged.map(\.id))
+        queue = state.library.items.filter {
+            !staged.contains($0.id) && !kept.contains($0.id)
         }
     }
 
     // MARK: Empty
 
     private var finishedState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 38, weight: .semibold))
-                .foregroundStyle(Theme.flare)
-            Text("Revue terminée")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("Vous avez passé toute la bibliothèque en revue. Les éléments mis de côté vous attendent dans le panier.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Recommencer") {
+        EmptyStateView(
+            symbol: "checkmark.seal.fill",
+            title: "Revue terminée",
+            message: "Vous avez passé toute la bibliothèque en revue. Les éléments mis de côté vous attendent dans le panier.",
+            action: .init(title: "Recommencer") {
                 withAnimation(Theme.Motion.pill) {
                     kept.removeAll()
                 }
             }
-            .buttonStyle(.bordered)
-            .tint(Theme.flare)
-            .padding(.top, 6)
-        }
-        .padding(.horizontal, 32)
+        )
         .frame(maxHeight: .infinity)
     }
 }

@@ -1,60 +1,8 @@
 import Foundation
 
-/// How the library is grouped into sections.
-enum Grouping: String, CaseIterable, Identifiable, Sendable {
-    case month
-    case year
-    case size
-    case type
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .month: "Mois"
-        case .year: "Année"
-        case .size: "Taille"
-        case .type: "Type"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .month: "calendar"
-        case .year: "calendar.badge.clock"
-        case .size: "arrow.up.arrow.down.square"
-        case .type: "square.on.square"
-        }
-    }
-}
-
-/// A titled group of assets, ready for a `Section`.
-struct MediaSection: Identifiable, Sendable {
-    let id: String
-    let title: String
-    /// Short right-aligned caption: a count, or a size range.
-    let caption: String
-    let items: [MediaItem]
-}
-
-/// Sort order inside a section.
-enum SortOrder: String, CaseIterable, Identifiable, Sendable {
-    case newest
-    case oldest
-    case largest
-    case smallest
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .newest: "Récent"
-        case .oldest: "Ancien"
-        case .largest: "Volumineux"
-        case .smallest: "Léger"
-        }
-    }
-}
+// `Grouping`, `MediaSection` and `SortOrder` live in `MediaTypes.swift`, so the
+// grid, the sort menu and the analyzer can share them without this file having
+// to be the home of three unrelated enums.
 
 /// Pure functions over a `[MediaItem]` snapshot.
 ///
@@ -75,7 +23,7 @@ enum MediaAnalyzer {
         switch grouping {
         case .month: monthSections(items, sort: sort, calendar: calendar, locale: locale)
         case .year: yearSections(items, sort: sort, calendar: calendar, locale: locale)
-        case .size: sizeSections(items)
+        case .size: sizeSections(items, sort: sort)
         case .type: typeSections(items, sort: sort)
         }
     }
@@ -131,25 +79,31 @@ enum MediaAnalyzer {
 
     /// Size buckets, because a literal sort by bytes produces a meaningless
     /// one-item-per-section list. Ranges are what a person can act on.
-    private static func sizeSections(_ items: [MediaItem]) -> [MediaSection] {
-        let buckets: [(String, String, ClosedRange<Double>)] = [
-            ("xxl", "Plus de 40 Mpx", 40...(.infinity)),
-            ("xl", "24 à 40 Mpx", 24...40),
-            ("l", "12 à 24 Mpx", 12...24),
-            ("m", "4 à 12 Mpx", 4...12),
-            ("s", "Moins de 4 Mpx", 0...4)
+    ///
+    /// The user's sort applies *inside* each bucket, like every other grouping.
+    /// It used to be hardcoded to largest-first, so picking "Plus anciennes"
+    /// silently did nothing as soon as you grouped by size.
+    private static func sizeSections(_ items: [MediaItem], sort: SortOrder) -> [MediaSection] {
+        // Half-open ranges. The previous version used closed ranges on both
+        // sides, so an asset of exactly 24 or 40 Mpx matched two buckets and
+        // appeared in two sections — which put the same `MediaItem.ID` in the
+        // grid twice and made `LazyVGrid` lay out duplicate rows.
+        let buckets: [(id: String, title: String, range: Range<Double>)] = [
+            ("xxl", "Plus de 40 Mpx", 40..<(.infinity)),
+            ("xl", "24 à 40 Mpx", 24..<40),
+            ("l", "12 à 24 Mpx", 12..<24),
+            ("m", "4 à 12 Mpx", 4..<12),
+            ("s", "Moins de 4 Mpx", 0..<4)
         ]
 
-        return buckets.compactMap { id, title, range in
-            let bucket = items
-                .filter { range.contains($0.megapixels) }
-                .sorted { $0.megapixels > $1.megapixels }
-            guard !bucket.isEmpty else { return nil }
+        return buckets.compactMap { bucket in
+            let matching = sorted(items.filter { bucket.range.contains($0.megapixels) }, by: sort)
+            guard !matching.isEmpty else { return nil }
             return MediaSection(
-                id: "s-\(id)",
-                title: title,
-                caption: caption(for: bucket),
-                items: bucket
+                id: "s-\(bucket.id)",
+                title: bucket.title,
+                caption: caption(for: matching),
+                items: matching
             )
         }
     }

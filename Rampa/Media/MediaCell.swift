@@ -14,10 +14,18 @@ struct MediaCell: View {
     let selectionMode: Bool
     var cornerRadius: CGFloat = 10
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         SquareThumbnail(assetID: item.id, cornerRadius: cornerRadius)
             .overlay {
-                if isStaged {
+                // A selection has to be readable at a glance across a whole
+                // grid, so it dims the image as well as ringing it: a 2 pt
+                // border alone disappears on a bright photo.
+                if isSelected {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Theme.flare.opacity(0.22))
+                } else if isStaged {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(Theme.danger.opacity(0.22))
                 }
@@ -37,14 +45,19 @@ struct MediaCell: View {
                         .padding(5)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if item.isFavorite && !selectionMode {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .shadow(radius: 1.5)
+                        .padding(6)
+                }
+            }
             .overlay(alignment: .topTrailing) {
                 if selectionMode {
-                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(isSelected ? Theme.flare : .white)
-                        .shadow(radius: 2)
-                        .padding(6)
-                        .symbolEffect(.bounce, value: isSelected)
+                    SelectionBadge(isSelected: isSelected)
+                        .padding(5)
                 } else if isStaged {
                     Image(systemName: "trash.fill")
                         .font(.system(size: 10, weight: .bold))
@@ -55,29 +68,55 @@ struct MediaCell: View {
                         .transition(.scale.combined(with: .opacity))
                 }
             }
+            .scaleEffect(isSelected && !reduceMotion ? 0.94 : 1)
             .animation(.smooth(duration: 0.22), value: isStaged)
             .animation(.smooth(duration: 0.22), value: isSelected)
             .accessibilityElement()
             .accessibilityLabel(accessibilityLabel)
             .accessibilityAddTraits(isSelected ? [.isImage, .isSelected] : .isImage)
+            .accessibilityHint(
+                selectionMode
+                    ? "Touchez pour sélectionner ou désélectionner."
+                    : "Touchez pour afficher en grand, touchez deux fois pour les actions."
+            )
     }
 
     private var borderColor: Color {
-        if isStaged { return Theme.danger }
         if isSelected { return Theme.flare }
+        if isStaged { return Theme.danger }
         return .clear
     }
 
     private var borderWidth: CGFloat {
-        isStaged || isSelected ? 2.5 : 0
+        isSelected ? 3 : (isStaged ? 2.5 : 0)
     }
 
     private var accessibilityLabel: String {
         var parts = [item.isVideo ? "Vidéo" : "Photo"]
         parts.append(item.creationDate.formatted(date: .abbreviated, time: .shortened))
         if item.isScreenCapture { parts.append("capture d'écran") }
+        if item.isFavorite { parts.append("favori") }
         if isStaged { parts.append("dans le panier") }
         if isSelected { parts.append("sélectionnée") }
         return parts.joined(separator: ", ")
+    }
+}
+
+/// The tick shown in multi-select mode. Extracted so the bounce lives in one
+/// place and does not re-trigger when an unrelated cell changes.
+private struct SelectionBadge: View {
+    let isSelected: Bool
+
+    var body: some View {
+        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(isSelected ? .white : .white.opacity(0.9))
+            .background {
+                Circle()
+                    .fill(isSelected ? Theme.flare : .black.opacity(0.28))
+                    .padding(-1.5)
+            }
+            .shadow(radius: 2)
+            .symbolEffect(.bounce, value: isSelected)
     }
 }

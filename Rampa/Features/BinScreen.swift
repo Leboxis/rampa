@@ -3,20 +3,29 @@ import SwiftUI
 
 /// The bin. Nothing leaves the library until this screen says so, and this
 /// screen requires a hold and a biometric check before it will.
+///
+/// Two things changed here. The old bin un-staged on a single tap, so a photo
+/// was one stray finger away from leaving the bin; it now opens in the viewer
+/// like everywhere else, with a clear "Retirer du panier" action. And "Vider"
+/// was a one-way door — it is now undoable, like every other staging action.
 struct BinScreen: View {
     @Environment(AppState.self) private var state
 
     @State private var showConfirm = false
     @State private var authError: String?
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 4)
-
     var body: some View {
         VStack(spacing: 0) {
             header
 
             if state.bin.staged.isEmpty {
-                emptyState
+                EmptyStateView(
+                    symbol: "tray",
+                    title: "Panier vide",
+                    message: "Mettez des photos de côté depuis la bibliothèque, la revue ou le tri automatique.",
+                    tint: Theme.inkSecondary
+                )
+                .frame(maxHeight: .infinity)
             } else {
                 content
             }
@@ -27,7 +36,7 @@ struct BinScreen: View {
                 onCancel: { showConfirm = false },
                 onConfirm: { Task { await commit() } }
             )
-            .presentationDetents([.height(360)])
+            .presentationDetents([.height(380)])
             .presentationDragIndicator(.visible)
             .presentationBackground(.regularMaterial)
         }
@@ -47,34 +56,17 @@ struct BinScreen: View {
     // MARK: Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Panier")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-
-                Spacer()
-
-                if !state.bin.staged.isEmpty {
-                    Button("Vider") {
-                        withAnimation(Theme.Motion.pill) {
-                            state.bin.unstageAll()
-                        }
+        ScreenHeader(title: "Panier", subtitle: explainer) {
+            if !state.bin.staged.isEmpty {
+                Button("Vider") {
+                    withAnimation(Theme.Motion.pill) {
+                        state.unstageAll()
                     }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Theme.inkSecondary)
                 }
-            }
-
-            Text(explainer)
-                .font(.system(size: 13))
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Theme.inkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
     }
 
     private var explainer: String {
@@ -90,31 +82,10 @@ struct BinScreen: View {
     private var content: some View {
         VStack(spacing: 0) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    LazyVGrid(columns: columns, spacing: 2) {
-                        ForEach(state.bin.staged) { item in
-                            Button {
-                                withAnimation(.smooth(duration: 0.24)) {
-                                    state.bin.unstage([item.id])
-                                }
-                            } label: {
-                                SquareThumbnail(assetID: item.id, cornerRadius: 10)
-                                    .overlay(alignment: .topTrailing) {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 9, weight: .bold))
-                                            .foregroundStyle(.white)
-                                            .padding(4)
-                                            .background(.black.opacity(0.5), in: Circle())
-                                            .padding(5)
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Retirer du panier")
-                        }
-                    }
-                    .padding(.horizontal, 2)
+                VStack(spacing: 0) {
+                    MediaGrid(items: state.bin.staged, tab: .bin)
 
-                    Color.clear.frame(height: 150)
+                    ScrollBottomInset()
                 }
             }
             .scrollIndicators(.hidden)
@@ -140,24 +111,9 @@ struct BinScreen: View {
                 .foregroundStyle(Theme.inkSecondary)
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, 6)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "tray")
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(Theme.inkSecondary)
-            Text("Panier vide")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("Mettez des photos de côté depuis la bibliothèque, la revue ou le tri automatique.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 32)
-        .frame(maxHeight: .infinity)
+        // The stage already ends above the floating bar; the old extra 20 pt
+        // here was padding the button away from nothing.
+        .padding(.bottom, 4)
     }
 
     // MARK: Commit
@@ -223,6 +179,7 @@ private struct ConfirmDeletionSheet: View {
             Text("Supprimer \(count) élément\(count > 1 ? "s" : "") ?")
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center)
 
             Text("Ils quitteront votre photothèque et iront dans « Récents supprimés », où Apple les conserve 30 jours. Vous pourrez les y récupérer pendant ce délai.")
                 .font(.system(size: 14))

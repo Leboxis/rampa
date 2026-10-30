@@ -6,6 +6,10 @@ import Photos
 /// Reads are cached in a single `[MediaItem]` snapshot so filtering, grouping
 /// and search all run on plain value types off the main actor. PhotoKit is
 /// only consulted again when the library actually changes.
+///
+/// The PhotoKit fetch itself runs `nonisolated`: enumerating 20 000 assets on
+/// the main actor at launch is a visible hitch, and none of the work needs the
+/// main thread. Only the finished snapshot crosses back.
 @MainActor
 @Observable
 final class MediaLibrary {
@@ -24,6 +28,11 @@ final class MediaLibrary {
     /// showing an empty library.
     private(set) var loadError: String?
 
+    /// Bumped after every load and every PhotoKit change notification. Views
+    /// derive from this instead of `.task(id: items.count)`, which misses any
+    /// change that keeps the count the same.
+    private(set) var revision = 0
+
     private var changeObserver: (any PHPhotoLibraryChangeObserver)?
     private var hasStarted = false
 
@@ -39,6 +48,23 @@ final class MediaLibrary {
         await requestAccess()
         await reload()
         observeChanges()
+    }
+
+    /// Re-reads the authorisation status.
+    ///
+    /// The first prompt is only ever shown once per install, so this is the
+    /// path that matters afterwards: the user goes to Settings, grants access,
+    /// comes back, and the library fills in instead of staying empty until the
+    /// next launch.
+    ///
+    /// - Returns: `true` when access changed and a reload happened.
+    @discardableResult
+    func refreshAccess() async -> Bool {
+        let before = access
+        await requestAccess()
+        guard access != before else { return false }
+        await reload()
+        return true
     }
 
     func requestAccess() async {
@@ -64,17 +90,27 @@ final class MediaLibrary {
     // MARK: Fetching
 
     /// Rebuilds the snapshot from PhotoKit.
-    ///
-    /// The fetch runs on the main actor because PhotoKit's synchronous fetch is
-    /// already fast for a metadata-only request; the expensive part (thumbnails)
-    /// happens later, per cell, off the main thread.
     func reload() async {
         guard access == .granted || access == .limited else {
             items = []
+            revision += 1
             return
         }
         isLoading = items.isEmpty
 
+        let snapshot = await Self.fetchSnapshot()
+
+        items = snapshot
+        isLoading = false
+        loadError = nil
+        revision += 1
+    }
+
+    /// The PhotoKit enumeration, off the main actor.
+    ///
+    /// Only plain values leave this function — no `PHAsset` is ever returned —
+    /// so nothing has to be `Sendable` that is not already a value type.
+    private nonisolated static func fetchSnapshot() async -> [MediaItem] {
         let options = PHFetchOptions()
         options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
         options.includeHiddenAssets = false
@@ -88,32 +124,39 @@ final class MediaLibrary {
             // Audio-only and unknown media are not photos or videos.
             guard asset.mediaType == .image || asset.mediaType == .video else { return }
 
-            let kind: MediaKind = asset.mediaType == .video ? .video : .photo
-            let screenCapture = asset.mediaSubtypes.contains(.photoScreenshot)
-
             snapshot.append(
                 MediaItem(
                     id: asset.localIdentifier,
                     creationDate: date,
-                    mediaType: kind,
+                    mediaType: asset.mediaType == .video ? .video : .photo,
                     duration: asset.duration,
                     pixelWidth: asset.pixelWidth,
                     pixelHeight: asset.pixelHeight,
                     isFavorite: asset.isFavorite,
-                    isScreenCapture: screenCapture
+                    isScreenCapture: asset.mediaSubtypes.contains(.photoScreenshot)
                 )
             )
         }
 
-        items = snapshot
-        isLoading = false
-        loadError = nil
+        return snapshot
     }
 
-    /// Re-reads a single asset's state after a change, without refetching all.
+    /// Drops assets from the cached snapshot without refetching the library.
     func remove(ids: Set<MediaItem.ID>) {
         guard !ids.isEmpty else { return }
         items.removeAll { ids.contains($0.id) }
+        revision += 1
+    }
+
+    /// Applies a favourite change locally, so the star responds to the tap
+    /// instead of waiting for the PhotoKit change notification.
+    func setFavorite(_ isFavorite: Bool, ids: Set<MediaItem.ID>) {
+        guard !ids.isEmpty else { return }
+        items = items.map { item in
+            guard ids.contains(item.id), item.isFavorite != isFavorite else { return item }
+            return item.withFavorite(isFavorite)
+        }
+        revision += 1
     }
 
     // MARK: Change observation

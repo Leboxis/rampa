@@ -26,6 +26,26 @@ struct MediaItem: Identifiable, Hashable, Sendable {
     var megapixels: Double {
         Double(pixelWidth * pixelHeight) / 1_000_000
     }
+
+    /// Pixel dimensions, for the inspector line in the viewer.
+    var resolutionText: String {
+        "\(pixelWidth) × \(pixelHeight)"
+    }
+
+    /// Returns a copy with a different favourite flag. `MediaItem` is a value
+    /// type, so a favourite change is one cheap map over the snapshot.
+    func withFavorite(_ isFavorite: Bool) -> MediaItem {
+        MediaItem(
+            id: id,
+            creationDate: creationDate,
+            mediaType: mediaType,
+            duration: duration,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
+            isFavorite: isFavorite,
+            isScreenCapture: isScreenCapture
+        )
+    }
 }
 
 enum MediaKind: String, Sendable, CaseIterable {

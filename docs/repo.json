@@ -16,7 +16,7 @@
                      "bundleIdentifier":  "com.leboxis.rampa",
                      "developerName":  "Leboxis",
                      "subtitle":  "Triez votre photothèque.",
-                     "localizedDescription":  "Rampa trie votre photothèque depuis cinq onglets : la bibliothèque groupée par mois, année, taille ou type ; une revue en balayage ; des propositions de nettoyage ; une recherche par date, type et taille ; et un panier.\n\nRien ne se supprime d\u0027un appui. Un élément doit d\u0027abord entrer dans le panier, puis survivre à un maintien de 1,4 s, puis passer Face ID. PhotoKit le déplace alors dans « Récents supprimés », où Apple le garde 30 jours.",
+                     "localizedDescription":  "Rampa trie votre photothèque depuis cinq onglets : la bibliothèque groupée par mois, année, taille ou type ; une revue en balayage ; des propositions de nettoyage ; une recherche par date, type et taille ; et un panier.\n\nTouchez une photo pour l\u0027afficher en grand, avec ses actions juste en dessous. Touchez longuement pour le menu. Cochez plusieurs photos pour faire apparaître une barre d\u0027actions, et annulez n\u0027importe quel ajout au panier.\n\nRien ne se supprime d\u0027un appui. Un élément doit d\u0027abord entrer dans le panier, puis survivre à un maintien de 1,4 s, puis passer Face ID. PhotoKit le déplace alors dans « Récents supprimés », où Apple le garde 30 jours.",
                      "iconURL":  "https://leboxis.github.io/rampa/app-icon.png",
                      "tintColor":  "#2F5BEA",
                      "category":  "utilities",
@@ -25,8 +25,8 @@
                                      ],
                      "versions":  [
                                       {
-                                          "version": "2.0.1",
-                                          "buildVersion": "3",
+                                          "version":  "2.1.0",
+                                          "buildVersion":  "4",
                                           "date":  "2026-10-30",
                                           "downloadURL":  "https://github.com/Leboxis/rampa/releases/latest/download/Rampa.ipa",
                                           "minOSVersion":  "17.0"

@@ -6,6 +6,9 @@ import SwiftUI
 /// the app searches what it legitimately has: date, month, year, kind, size
 /// bucket, screenshots and favourites. The screen says so instead of letting
 /// people type "plage" and get nothing without explanation.
+///
+/// Results use the same `MediaGrid` as the library, so tapping one opens the
+/// viewer with the same actions, and the same long-press menu.
 struct SearchScreen: View {
     @Environment(AppState.self) private var state
 
@@ -13,32 +16,35 @@ struct SearchScreen: View {
     @State private var results: [MediaItem] = []
     @FocusState private var focused: Bool
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 4)
-
-    /// Chips that fill the field with something that will actually match.
-    private let suggestions = [
-        "vidéo", "capture écran", "favori", "2025", "cette année", "xxl"
-    ]
+    /// Filters that the query alone cannot express, so the user does not have
+    /// to guess the magic word.
+    @State private var filters: Set<SearchFilter> = []
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            ScreenHeader(title: "Recherche") {
+                if !results.isEmpty {
+                    HeaderCount(value: results.count, suffix: "résultats")
+                }
+            }
+
             searchField
-            body_
+            filterRow
+            content
         }
         .task { await state.library.start() }
-        .task(id: query) { await search() }
+        .task(id: searchKey) { await search() }
     }
 
-    private var header: some View {
-        Text("Recherche")
-            .font(.system(size: 28, weight: .bold, design: .rounded))
-            .foregroundStyle(Theme.ink)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 12)
+    private var searchKey: String {
+        [
+            query,
+            String(state.library.revision),
+            filters.map(\.rawValue).sorted().joined(separator: ",")
+        ].joined(separator: "|")
     }
+
+    // MARK: Field
 
     private var searchField: some View {
         HStack(spacing: 9) {
@@ -73,13 +79,40 @@ struct SearchScreen: View {
             Capsule(style: .continuous)
                 .strokeBorder(focused ? Theme.flare.opacity(0.5) : Theme.hairline, lineWidth: 1)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Theme.Metrics.gutter)
         .animation(.smooth(duration: 0.2), value: query.isEmpty)
     }
 
+    private var filterRow: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(SearchFilter.allCases) { filter in
+                    Chip(
+                        title: filter.title,
+                        symbol: filter.symbol,
+                        isOn: filters.contains(filter)
+                    ) {
+                        withAnimation(.smooth(duration: 0.2)) {
+                            if filters.contains(filter) {
+                                filters.remove(filter)
+                            } else {
+                                filters.insert(filter)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Theme.Metrics.gutter)
+        }
+        .scrollIndicators(.hidden)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: Content
+
     @ViewBuilder
-    private var body_: some View {
-        if query.isEmpty {
+    private var content: some View {
+        if query.isEmpty && filters.isEmpty {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text("Essayez")
@@ -87,7 +120,7 @@ struct SearchScreen: View {
                         .foregroundStyle(Theme.inkSecondary)
 
                     FlowLayout(spacing: 8) {
-                        ForEach(suggestions, id: \.self) { suggestion in
+                        ForEach(Self.suggestions, id: \.self) { suggestion in
                             Button {
                                 query = suggestion
                             } label: {
@@ -109,71 +142,113 @@ struct SearchScreen: View {
                         .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(Theme.Metrics.gutter)
             }
             .scrollIndicators(.hidden)
+
         } else if results.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 32, weight: .semibold))
-                    .foregroundStyle(Theme.inkSecondary)
-                Text("Aucun résultat")
-                    .font(.system(size: 19, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                Text("Essayez un mois, une année, « vidéo » ou « capture écran ».")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.inkSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.horizontal, 32)
+            EmptyStateView(
+                symbol: "magnifyingglass",
+                title: "Aucun résultat",
+                message: "Essayez un mois, une année, « vidéo » ou « capture écran ».",
+                tint: Theme.inkSecondary
+            )
             .frame(maxHeight: .infinity)
+
         } else {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    Text("\(results.count) résultat\(results.count > 1 ? "s" : "")")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Theme.inkSecondary)
-                        .contentTransition(.numericText())
-                        .padding(.horizontal, 16)
+                MediaGrid(items: results, tab: .search)
+                    .padding(.top, 2)
 
-                    LazyVGrid(columns: columns, spacing: 2) {
-                        ForEach(results) { item in
-                            Button {
-                                state.stage([item])
-                            } label: {
-                                MediaCell(
-                                    item: item,
-                                    isStaged: false,
-                                    isSelected: false,
-                                    selectionMode: false
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 2)
-                    Color.clear.frame(height: 110)
-                }
+                ScrollBottomInset()
             }
             .scrollIndicators(.hidden)
+            .scrollDismissesKeyboard(.immediately)
         }
     }
 
+    private static let suggestions = [
+        "vidéo", "capture écran", "favori", "2025", "cette année", "xxl"
+    ]
+
+    // MARK: Search
+
     private func search() async {
         let text = query
-        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else {
+        let activeFilters = filters
+
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty || !activeFilters.isEmpty else {
             results = []
             return
         }
+
         let items = state.browsableItems
 
         let found = await Task.detached(priority: .userInitiated) {
-            MediaAnalyzer.search(items, query: text)
+            // Filters first (cheap predicates), then the text search over what
+            // survives — the other order would run the expensive string build
+            // on assets a chip was about to exclude.
+            let filtered = SearchFilter.apply(activeFilters, to: items)
+            return MediaAnalyzer.search(filtered, query: text)
         }.value
 
         guard !Task.isCancelled else { return }
-        withAnimation(Theme.Motion.pill) {
-            results = found
+        results = found
+    }
+}
+
+// MARK: - Filters
+
+/// Toggles for the facets a person can actually name, so search does not depend
+/// on remembering the vocabulary.
+enum SearchFilter: String, CaseIterable, Identifiable, Sendable {
+    case favorite
+    case screenshot
+    case video
+    case photo
+    case large
+    case thisYear
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .favorite: "Favoris"
+        case .screenshot: "Captures"
+        case .video: "Vidéos"
+        case .photo: "Photos"
+        case .large: "Lourdes"
+        case .thisYear: "Cette année"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .favorite: "heart.fill"
+        case .screenshot: "camera.viewfinder"
+        case .video: "video.fill"
+        case .photo: "photo.fill"
+        case .large: "arrow.up.right"
+        case .thisYear: "calendar"
+        }
+    }
+
+    nonisolated static func apply(_ filters: Set<SearchFilter>, to items: [MediaItem]) -> [MediaItem] {
+        guard !filters.isEmpty else { return items }
+        let year = Calendar.current.component(.year, from: .now)
+
+        return items.filter { item in
+            filters.allSatisfy { filter in
+                switch filter {
+                case .favorite: item.isFavorite
+                case .screenshot: item.isScreenCapture
+                case .video: item.isVideo
+                case .photo: !item.isVideo
+                case .large: item.megapixels >= 12
+                case .thisYear:
+                    Calendar.current.component(.year, from: item.creationDate) == year
+                }
+            }
         }
     }
 }

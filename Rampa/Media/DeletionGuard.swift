@@ -30,15 +30,43 @@ final class DeletionGuard {
     }
 
     /// Adds items to the bin. Adding is always safe: nothing leaves the library.
-    func stage(_ items: [MediaItem]) {
+    ///
+    /// - Returns: the items that were not already staged, so the caller can
+    ///   offer to undo exactly what this call changed.
+    @discardableResult
+    func stage(_ items: [MediaItem]) -> [MediaItem] {
         let known = Set(staged.map(\.id))
-        let fresh = items.filter { !known.contains($0.id) }
-        guard !fresh.isEmpty else { return }
+        var seen = known
+        var fresh: [MediaItem] = []
+        for item in items where !seen.contains(item.id) {
+            seen.insert(item.id)
+            fresh.append(item)
+        }
+        guard !fresh.isEmpty else { return [] }
         staged.insert(contentsOf: fresh, at: 0)
+        return fresh
     }
 
     func unstage(_ ids: Set<MediaItem.ID>) {
         staged.removeAll { ids.contains($0.id) }
+    }
+
+    /// Puts back items that were just removed from the bin, keeping the order
+    /// the caller had. Used by undo, which is why it restores the array rather
+    /// than re-inserting items one by one — re-inserting at the front reverses
+    /// a multi-item undo.
+    func restore(_ items: [MediaItem]) {
+        guard !items.isEmpty else { return }
+        let present = Set(staged.map(\.id))
+        let missing = items.filter { !present.contains($0.id) }
+        guard !missing.isEmpty else { return }
+        staged.insert(contentsOf: missing, at: 0)
+    }
+
+    /// Restores the bin to an exact previous state. This is what "Annuler"
+    /// after "Vider" needs: a verbatim array, not a merge.
+    func restoreExact(_ items: [MediaItem]) {
+        staged = items
     }
 
     func unstageAll() {
@@ -70,9 +98,8 @@ final class DeletionGuard {
             // Something changed under us — a second device, or Photos already
             // cleared it. Reload rather than deleting a partial batch blind.
             errorMessage = "Certains éléments ont changé entre-temps. Le panier a été rechargé."
-            staged.removeAll { item in
-                PHAsset.fetchAssets(withLocalIdentifiers: [item.id], options: nil).count == 0
-            }
+            let surviving = Set(Self.existingIdentifiers(batch.map(\.id)))
+            staged.removeAll { !surviving.contains($0.id) }
             return []
         }
 
@@ -91,5 +118,17 @@ final class DeletionGuard {
 
     func clearError() {
         errorMessage = nil
+    }
+
+    /// One PhotoKit round-trip for the whole batch instead of one per asset,
+    /// which is what the previous version did inside a `removeAll` predicate.
+    private nonisolated static func existingIdentifiers(_ ids: [MediaItem.ID]) -> [MediaItem.ID] {
+        let found = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        var present: [MediaItem.ID] = []
+        present.reserveCapacity(found.count)
+        found.enumerateObjects { asset, _, _ in
+            present.append(asset.localIdentifier)
+        }
+        return present
     }
 }

@@ -3,7 +3,8 @@ import SwiftUI
 /// Automated cleanup proposals.
 ///
 /// Every group is a *suggestion* with its reason stated. Nothing here deletes:
-/// the worst a button can do is stage items into the bin.
+/// the worst a button can do is stage items into the bin, and even that is
+/// undoable.
 struct CleanupScreen: View {
     @Environment(AppState.self) private var state
 
@@ -11,16 +12,25 @@ struct CleanupScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            ScreenHeader(
+                title: "Tri automatique",
+                subtitle: "Des propositions, jamais des décisions. Rien ne part sans votre accord."
+            )
 
             if state.cleanupGroups.isEmpty {
-                emptyState
+                EmptyStateView(
+                    symbol: "sparkles",
+                    title: "Rien à proposer",
+                    message: "Aucun groupe ne ressort pour l'instant : pas de captures anciennes, pas de rafales, pas d'images minuscules."
+                )
+                .frame(maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 14) {
                         ForEach(state.cleanupGroups) { group in
                             CleanupCard(
                                 group: group,
+                                tab: .cleanup,
                                 isExpanded: expanded.contains(group.id),
                                 onToggle: {
                                     withAnimation(Theme.Motion.pill) {
@@ -39,61 +49,37 @@ struct CleanupScreen: View {
                             )
                         }
 
-                        Color.clear.frame(height: 110)
+                        ScrollBottomInset()
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, Theme.Metrics.gutter)
                 }
                 .scrollIndicators(.hidden)
             }
         }
         .task {
             await state.library.start()
-            recompute()
         }
-        .task(id: state.library.items.count) {
+        .task(id: recomputeKey) {
             recompute()
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Tri automatique")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-
-            Text("Des propositions, jamais des décisions. Rien ne part sans votre accord.")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.inkSecondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
-    }
-
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(Theme.flare)
-            Text("Rien à proposer")
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("Aucun groupe ne ressort pour l'instant : pas de captures anciennes, pas de rafales, pas d'images minuscules.")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.inkSecondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 32)
-        .frame(maxHeight: .infinity)
+    /// The staged set is folded in by identity rather than by count: swapping
+    /// one staged photo for another leaves the count identical but changes what
+    /// the proposals should contain.
+    private var recomputeKey: String {
+        "\(state.library.revision)|\(state.bin.staged.map(\.id).sorted().joined(separator: ","))"
     }
 
     private func recompute() {
         let items = state.library.items
         guard !items.isEmpty else {
-            state.cleanupGroups = []
+            if !state.cleanupGroups.isEmpty {
+                withAnimation(Theme.Motion.pill) { state.cleanupGroups = [] }
+            }
             return
         }
+
         let staged = Set(state.bin.staged.map(\.id))
         let groups = MediaAnalyzer.cleanupSuggestions(items)
             .map { group in
@@ -115,13 +101,15 @@ struct CleanupScreen: View {
 
 // MARK: - Card
 
+/// One proposal. Collapsed it states the reason and the count; expanded it
+/// shows the actual photos, each of which can be opened, so "les 42 captures
+/// d'écran" is never a number you have to take on faith.
 private struct CleanupCard: View {
     let group: CleanupGroup
+    let tab: AppTab
     let isExpanded: Bool
     let onToggle: () -> Void
     let onStage: () -> Void
-
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 5)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -159,16 +147,13 @@ private struct CleanupCard: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityHint(isExpanded ? "Replier le groupe" : "Déplier le groupe")
 
             if isExpanded {
-                LazyVGrid(columns: columns, spacing: 2) {
-                    ForEach(group.items.prefix(25)) { item in
-                        SquareThumbnail(assetID: item.id, cornerRadius: 6)
-                    }
-                }
+                MediaGrid(items: Array(group.items.prefix(24)), tab: tab, columns: 5)
 
-                if group.items.count > 25 {
-                    Text("+ \(group.items.count - 25) autres")
+                if group.items.count > 24 {
+                    Text("+ \(group.items.count - 24) autres")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.inkSecondary)
                 }
