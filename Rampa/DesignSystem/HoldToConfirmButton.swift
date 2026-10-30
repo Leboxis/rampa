@@ -102,7 +102,7 @@ struct HoldToConfirmButton: View {
 #Preview {
     VStack(spacing: 20) {
         HoldToConfirmButton(
-            title: "Glisser vers le panier",
+            title: "Glisser vers la corbeille",
             holdingTitle: "Continuez…",
             symbol: "trash",
             tint: Theme.flare

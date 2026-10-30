@@ -5,8 +5,13 @@ import SwiftUI
 ///
 /// The bar is laid out by the parent rather than with `.safeAreaInset`, so it
 /// floats clear of the home indicator and content can pass behind it. The stage
-/// reserves the bar's height at the bottom, which keeps content out from under
-/// the glass.
+/// reserves the bar's footprint with a bottom padding derived from the same
+/// metrics the bar is drawn with.
+///
+/// That reserve used to be subtracted from the measured height instead, and the
+/// shortened stage was then bottom-aligned inside the ZStack — which left the
+/// whole strip empty at the *top*. Every screen's header and chips sat 80 pt too
+/// low, and the bottom of the content still ran on under the glass.
 ///
 /// The bottom strip has three possible occupants that must never overlap: the
 /// navigation bar, the selection bar, and an undo confirmation. They share one
@@ -17,29 +22,41 @@ struct RootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Space kept clear for the floating strip: the bar itself, the gap under
+    /// it, and a comfort margin so the last row does not end flush against the
+    /// glass. One value, shared by the stage's inset and the strip's padding,
+    /// so the two can never drift apart.
+    private var barReserve: CGFloat {
+        Theme.Metrics.barHeight
+            + Theme.Metrics.barBottomGap
+            + Theme.Metrics.barClearance
+    }
+
     var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .bottom) {
-                AmbientBackdrop(tab: state.tab)
+        ZStack(alignment: .bottom) {
+            AmbientBackdrop(tab: state.tab)
 
-                // The stage is given an explicit size and clipped. Without this
-                // a single oversized child (an image claiming its native pixel
-                // size, say) expands the ZStack, which pushes the bar off
-                // screen and zooms the whole app.
-                stage
-                    .id(state.tab)
-                    .transition(stageTransition)
-                    .frame(
-                        width: proxy.size.width,
-                        height: proxy.size.height - Theme.Metrics.barHeight - Theme.Metrics.barInset
-                    )
-                    .clipped()
+            // The stage fills the screen from the top edge and hands its bottom
+            // reserve back to the bar. `.clipped()` still matters: a single
+            // oversized child (an image claiming its native pixel size, say)
+            // would otherwise expand the ZStack and push the bar off screen.
+            //
+            // This is a padding, not a shortened frame. Shortening the frame
+            // and letting the ZStack bottom-align it left the reserve empty at
+            // the *top* — every screen's header and chips sat 80 pt too low —
+            // while the bottom of the content ran on under the glass. Padding
+            // takes the space off the bottom edge only, which is the edge the
+            // bar is actually on.
+            stage
+                .id(state.tab)
+                .transition(stageTransition)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .padding(.bottom, barReserve)
 
-                bottomStrip
-                    .padding(.horizontal, Theme.Metrics.barInset)
-                    .padding(.bottom, 6)
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
+            bottomStrip
+                .padding(.horizontal, Theme.Metrics.barInset)
+                .padding(.bottom, Theme.Metrics.barBottomGap)
         }
         .background(Theme.canvas)
         .environment(state)
@@ -73,7 +90,7 @@ struct RootView: View {
         case .review: ReviewScreen()
         case .cleanup: CleanupScreen()
         case .search: SearchScreen()
-        case .bin: BinScreen()
+        case .trash: TrashScreen()
         }
     }
 
@@ -150,9 +167,9 @@ struct RootView: View {
 
     /// The actions offered on the current selection.
     ///
-    /// Each screen gets the ones that make sense on it: offering "mettre au
-    /// panier" on the bin's own contents would be a loop, and offering "retirer
-    /// du panier" anywhere else would be a lie.
+    /// Each screen gets the ones that make sense on it: offering "mettre à la
+    /// corbeille" on the trash's own contents would be a loop, and offering
+    /// "retirer de la corbeille" anywhere else would be a lie.
     private func selectionActions(for tab: AppTab) -> [MediaAction] {
         let items = state.selectedItems(in: tab)
         guard !items.isEmpty else { return [] }
@@ -173,7 +190,7 @@ struct RootView: View {
                 },
                 MediaAction(
                     id: "stage",
-                    title: "Mettre au panier",
+                    title: "Mettre à la corbeille",
                     symbol: "tray.and.arrow.down",
                     tint: Theme.danger
                 ) {
@@ -184,11 +201,11 @@ struct RootView: View {
                 }
             ]
 
-        case .bin:
+        case .trash:
             return [
                 MediaAction(
                     id: "unstage",
-                    title: "Retirer du panier",
+                    title: "Retirer de la corbeille",
                     symbol: "arrow.uturn.backward",
                     tint: Theme.flare
                 ) {

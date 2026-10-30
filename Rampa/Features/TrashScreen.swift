@@ -1,14 +1,18 @@
 import LocalAuthentication
 import SwiftUI
 
-/// The bin. Nothing leaves the library until this screen says so, and this
+/// The trash. Nothing leaves the library until this screen says so, and this
 /// screen requires a hold and a biometric check before it will.
 ///
-/// Two things changed here. The old bin un-staged on a single tap, so a photo
-/// was one stray finger away from leaving the bin; it now opens in the viewer
-/// like everywhere else, with a clear "Retirer du panier" action. And "Vider"
+/// Two things changed here. The old trash un-staged on a single tap, so a photo
+/// was one stray finger away from leaving it; it now opens in the viewer like
+/// everywhere else, with a clear "Retirer de la corbeille" action. And "Vider"
 /// was a one-way door — it is now undoable, like every other staging action.
-struct BinScreen: View {
+///
+/// The empty state used to explain where photos come from without offering a
+/// way there, which left the screen a dead end. It now carries the action that
+/// fills it.
+struct TrashScreen: View {
     @Environment(AppState.self) private var state
 
     @State private var showConfirm = false
@@ -18,12 +22,17 @@ struct BinScreen: View {
         VStack(spacing: 0) {
             header
 
-            if state.bin.staged.isEmpty {
+            if state.trash.staged.isEmpty {
                 EmptyStateView(
-                    symbol: "tray",
-                    title: "Panier vide",
+                    symbol: "trash",
+                    title: "Corbeille vide",
                     message: "Mettez des photos de côté depuis la bibliothèque, la revue ou le tri automatique.",
-                    tint: Theme.inkSecondary
+                    tint: Theme.inkSecondary,
+                    action: .init(title: "Parcourir la bibliothèque") {
+                        withAnimation(Theme.Motion.pill) {
+                            state.tab = .library
+                        }
+                    }
                 )
                 .frame(maxHeight: .infinity)
             } else {
@@ -32,7 +41,7 @@ struct BinScreen: View {
         }
         .sheet(isPresented: $showConfirm) {
             ConfirmDeletionSheet(
-                count: state.bin.staged.count,
+                count: state.trash.staged.count,
                 onCancel: { showConfirm = false },
                 onConfirm: { Task { await commit() } }
             )
@@ -56,8 +65,8 @@ struct BinScreen: View {
     // MARK: Header
 
     private var header: some View {
-        ScreenHeader(title: "Panier", subtitle: explainer) {
-            if !state.bin.staged.isEmpty {
+        ScreenHeader(title: "Corbeille", subtitle: explainer) {
+            if !state.trash.staged.isEmpty {
                 Button("Vider") {
                     withAnimation(Theme.Motion.pill) {
                         state.unstageAll()
@@ -70,7 +79,7 @@ struct BinScreen: View {
     }
 
     private var explainer: String {
-        let count = state.bin.staged.count
+        let count = state.trash.staged.count
         guard count > 0 else {
             return "Les éléments que vous mettez de côté arrivent ici. Rien n'est supprimé tant que vous ne confirmez pas."
         }
@@ -83,7 +92,7 @@ struct BinScreen: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    MediaGrid(items: state.bin.staged, tab: .bin)
+                    MediaGrid(items: state.trash.staged, tab: .trash)
 
                     ScrollBottomInset()
                 }
@@ -104,7 +113,7 @@ struct BinScreen: View {
             ) {
                 showConfirm = true
             }
-            .disabled(state.bin.isWorking)
+            .disabled(state.trash.isWorking)
 
             Text("Vos éléments partent dans « Récents supprimés », pas dans le néant.")
                 .font(.system(size: 11))
@@ -140,7 +149,7 @@ struct BinScreen: View {
         do {
             let ok = try await context.evaluatePolicy(
                 policy,
-                localizedReason: "Confirmer la suppression de \(state.bin.staged.count) élément(s) de votre photothèque."
+                localizedReason: "Confirmer la suppression de \(state.trash.staged.count) élément(s) de votre photothèque."
             )
             guard ok else { return }
         } catch {
@@ -148,10 +157,10 @@ struct BinScreen: View {
             return
         }
 
-        let removed = await state.bin.commit()
-        if let message = state.bin.errorMessage {
+        let removed = await state.trash.commit()
+        if let message = state.trash.errorMessage {
             authError = message
-            state.bin.clearError()
+            state.trash.clearError()
         } else {
             withAnimation(Theme.Motion.pill) {
                 state.applyRemoval(removed)

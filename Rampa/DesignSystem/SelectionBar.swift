@@ -90,7 +90,7 @@ struct SelectionBar: View {
 
 /// A transient confirmation with an undo, shown above the bar.
 ///
-/// The old bin was a one-way door: "Vider" emptied it with no way back, and
+/// The old trash was a one-way door: "Vider" emptied it with no way back, and
 /// removing the wrong photo from it meant going to find it again. Undo is what
 /// makes a destructive-looking action safe to try.
 struct UndoBanner: View {

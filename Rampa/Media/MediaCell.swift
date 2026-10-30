@@ -96,7 +96,7 @@ struct MediaCell: View {
         parts.append(item.creationDate.formatted(date: .abbreviated, time: .shortened))
         if item.isScreenCapture { parts.append("capture d'écran") }
         if item.isFavorite { parts.append("favori") }
-        if isStaged { parts.append("dans le panier") }
+        if isStaged { parts.append("dans la corbeille") }
         if isSelected { parts.append("sélectionnée") }
         return parts.joined(separator: ", ")
     }

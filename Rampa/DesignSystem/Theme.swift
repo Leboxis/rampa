@@ -44,6 +44,15 @@ enum Theme {
         /// Horizontal inset of the bar from the screen edges.
         static let barInset: CGFloat = 20
 
+        /// Gap between the bar and the bottom safe area (the home indicator).
+        static let barBottomGap: CGFloat = 6
+
+        /// Clear space kept between the top of the bar and the content of a
+        /// screen. The stage reserves `barHeight + barBottomGap + barClearance`
+        /// at its bottom edge, so the last row of a grid ends just above the
+        /// glass instead of underneath it.
+        static let barClearance: CGFloat = 14
+
         /// Inset of the active pill inside the bar.
         static let pillInset: CGFloat = 4
 

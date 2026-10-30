@@ -216,7 +216,7 @@ enum MediaAnalyzer {
     /// Heuristics that surface the photos people actually regret keeping.
     ///
     /// Every suggestion is a *proposal*, never an action: the caller stages
-    /// them into the bin where they still need a hold and a biometric check.
+    /// them into the trash where they still need a hold and a biometric check.
     static func cleanupSuggestions(
         _ items: [MediaItem],
         calendar: Calendar = .current

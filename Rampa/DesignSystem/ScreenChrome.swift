@@ -46,7 +46,10 @@ struct ScreenHeader<Trailing: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.Metrics.gutter)
-        .padding(.top, 8)
+        // The stage now starts right below the status bar instead of 80 pt down,
+        // so this gap alone separates the title from the clock. 8 pt read as
+        // cramped the moment the phantom top margin went away.
+        .padding(.top, 12)
         .padding(.bottom, 12)
     }
 }
@@ -186,11 +189,11 @@ struct Chip: View {
 /// floating bar.
 ///
 /// The stage already ends above the bar, so this is a comfort margin, not a
-/// clearance: the old `Color.clear.frame(height: 110)` was reserving space for
-/// a bar that was never on top of the content, and left a dead gap under every
-/// grid.
+/// clearance: the reserve itself lives in `RootView.barReserve`. It used to be
+/// 24 pt on top of a stage that was shortened from the wrong edge, which left a
+/// dead gap under every grid.
 struct ScrollBottomInset: View {
-    var height: CGFloat = 24
+    var height: CGFloat = 8
 
     var body: some View {
         Color.clear.frame(height: height)

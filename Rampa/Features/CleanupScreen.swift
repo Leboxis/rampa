@@ -3,7 +3,7 @@ import SwiftUI
 /// Automated cleanup proposals.
 ///
 /// Every group is a *suggestion* with its reason stated. Nothing here deletes:
-/// the worst a button can do is stage items into the bin, and even that is
+/// the worst a button can do is stage items into the trash, and even that is
 /// undoable.
 struct CleanupScreen: View {
     @Environment(AppState.self) private var state
@@ -68,7 +68,7 @@ struct CleanupScreen: View {
     /// one staged photo for another leaves the count identical but changes what
     /// the proposals should contain.
     private var recomputeKey: String {
-        "\(state.library.revision)|\(state.bin.staged.map(\.id).sorted().joined(separator: ","))"
+        "\(state.library.revision)|\(state.trash.staged.map(\.id).sorted().joined(separator: ","))"
     }
 
     private func recompute() {
@@ -80,7 +80,7 @@ struct CleanupScreen: View {
             return
         }
 
-        let staged = Set(state.bin.staged.map(\.id))
+        let staged = Set(state.trash.staged.map(\.id))
         let groups = MediaAnalyzer.cleanupSuggestions(items)
             .map { group in
                 CleanupGroup(
@@ -162,7 +162,7 @@ private struct CleanupCard: View {
                     HStack(spacing: 7) {
                         Image(systemName: "tray.and.arrow.down.fill")
                             .font(.system(size: 13, weight: .semibold))
-                        Text("Mettre les \(group.items.count) au panier")
+                        Text("Mettre les \(group.items.count) à la corbeille")
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .foregroundStyle(Theme.flare)

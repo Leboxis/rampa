@@ -207,13 +207,13 @@ struct MediaViewer: View {
                 state.toggleFavorite([liveItem])
             }
 
-            if state.tab == .bin {
+            if state.tab == .trash {
                 viewerAction(title: "Retirer", symbol: "arrow.uturn.backward", tint: .white) {
                     state.unstage([liveItem])
                     dismiss()
                 }
             } else {
-                viewerAction(title: "Panier", symbol: "tray.and.arrow.down", tint: .white) {
+                viewerAction(title: "Corbeille", symbol: "tray.and.arrow.down", tint: .white) {
                     state.stage([liveItem])
                     dismiss()
                 }

@@ -9,7 +9,7 @@ enum AppTab: Int, CaseIterable, Identifiable, Hashable {
     case review
     case cleanup
     case search
-    case bin
+    case trash
 
     var id: Int { rawValue }
 
@@ -20,7 +20,7 @@ enum AppTab: Int, CaseIterable, Identifiable, Hashable {
         case .review: "Revue"
         case .cleanup: "Trier"
         case .search: "Chercher"
-        case .bin: "Panier"
+        case .trash: "Corbeille"
         }
     }
 
@@ -31,18 +31,7 @@ enum AppTab: Int, CaseIterable, Identifiable, Hashable {
         case .review: "rectangle.stack.fill"
         case .cleanup: "wand.and.sparkles"
         case .search: "magnifyingglass"
-        case .bin: "trash.fill"
-        }
-    }
-
-    /// Screen heading.
-    var headline: String {
-        switch self {
-        case .library: "Bibliothèque"
-        case .review: "Revue"
-        case .cleanup: "Tri automatique"
-        case .search: "Recherche"
-        case .bin: "Panier"
+        case .trash: "trash.fill"
         }
     }
 }

@@ -10,10 +10,10 @@ destination, or drag horizontally on the bar and flick. Each one does a real job
 | Tab | What it does |
 |---|---|
 | **Photos** | The whole library, grouped by month, year, size or type, with pinned headers |
-| **Revue** | Swipe triage: left stages to the bin, right keeps |
+| **Revue** | Swipe triage: left stages to the trash, right keeps |
 | **Trier** | Cleanup proposals — old screenshots, heavy videos, bursts, tiny images |
 | **Chercher** | Search over date, month, year, kind, size, screenshots, favourites |
-| **Panier** | The bin, and the only place anything is ever deleted |
+| **Corbeille** | The trash, and the only place anything is ever deleted |
 
 ## Looking, then acting
 
@@ -24,7 +24,7 @@ photos. The gestures now follow the grammar every photo app already taught you:
 | Gesture | Result |
 |---|---|
 | Tap | Opens the viewer: the whole photo, uncropped, with its actions underneath |
-| Long press | A context menu — favourite, bin, select |
+| Long press | A context menu — favourite, trash, select |
 | Tap in selection mode | Ticks the photo |
 
 The viewer is the point. It shows the asset at its true aspect ratio (the deck
@@ -41,22 +41,23 @@ so leaving a screen abandons its ticks instead of leaving a bar counting photos
 you can no longer see.
 
 The bar only ever offers what is true of that screen. Library, search and
-cleanup get *favourite* and *mettre au panier*; the bin gets *retirer du panier*
-and nothing else, because staging what is already staged would be a loop.
+cleanup get *favourite* and *mettre à la corbeille*; the trash gets *retirer de
+la corbeille* and nothing else, because staging what is already staged would be
+a loop.
 
 ## Undo
 
-Staging, un-staging and emptying the bin all offer an undo in a banner above the
-bar. "Vider" used to be a one-way door. Undo restores the exact previous order,
-so a multi-item undo does not reverse the bin.
+Staging, un-staging and emptying the trash all offer an undo in a banner above
+the bar. "Vider" used to be a one-way door. Undo restores the exact previous
+order, so a multi-item undo does not reverse the trash.
 
 ## The four rails
 
 Deleting a photo is irreversible in almost every app. Here it takes four
 deliberate steps, and the fourth is not even in this app:
 
-1. **Staging.** Nothing is deleted from a tap. An asset enters the bin, where it
-   sits until you say otherwise. Undo is a tap on the item.
+1. **Staging.** Nothing is deleted from a tap. An asset enters the trash, where
+   it sits until you say otherwise. Undo is a tap on the item.
 2. **Hold to confirm.** The delete button is not a button, it is a 1.4 s hold
    with a ring closing over it. Release early and nothing happens — no dialog,
    no penalty, no state change.
@@ -173,7 +174,7 @@ Rampa/
                   ThumbnailLoader, ThumbnailView, MediaCell, MediaGrid,
                   MediaViewer, MediaAnalyzer, DeletionGuard
   Features/       LibraryScreen, ReviewScreen, CleanupScreen,
-                  SearchScreen, BinScreen
+                  SearchScreen, TrashScreen
   Resources/      Assets.xcassets
 Support/          Info.plist
 docs/             repo.json, index.html, source art

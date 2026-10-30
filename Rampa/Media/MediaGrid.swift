@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The grid used by the library, the search results, the cleanup groups and
-/// the bin.
+/// the trash.
 ///
 /// It exists for two reasons. Every screen used to re-implement its own
 /// `LazyVGrid` with its own tap handling, so a fix in one never reached the
@@ -62,7 +62,7 @@ struct MediaGrid: View {
         } label: {
             MediaCell(
                 item: item,
-                isStaged: tab == .bin,
+                isStaged: tab == .trash,
                 isSelected: isSelected,
                 selectionMode: selecting
             )
@@ -80,17 +80,17 @@ struct MediaGrid: View {
                 )
             }
 
-            if tab == .bin {
+            if tab == .trash {
                 Button {
                     state.unstage([item])
                 } label: {
-                    Label("Retirer du panier", systemImage: "arrow.uturn.backward")
+                    Label("Retirer de la corbeille", systemImage: "arrow.uturn.backward")
                 }
             } else {
                 Button {
                     state.stage([item])
                 } label: {
-                    Label("Mettre au panier", systemImage: "tray.and.arrow.down")
+                    Label("Mettre à la corbeille", systemImage: "tray.and.arrow.down")
                 }
             }
 

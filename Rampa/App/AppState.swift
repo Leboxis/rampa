@@ -5,13 +5,13 @@ import SwiftUI
 /// prop-drilling a dozen bindings.
 ///
 /// Selection is **per tab**. Sharing one `Set` meant switching from the library
-/// to the bin with twelve photos ticked left a selection bar hanging over a
+/// to the trash with twelve photos ticked left a selection bar hanging over a
 /// screen whose items had nothing to do with it.
 @MainActor
 @Observable
 final class AppState {
     var library = MediaLibrary()
-    var bin = DeletionGuard()
+    var trash = DeletionGuard()
 
     /// Sections of the library screen, derived off the view body.
     var grouping: Grouping = .month
@@ -57,7 +57,7 @@ final class AppState {
 
     // MARK: Derived
 
-    var stagedCount: Int { bin.staged.count }
+    var stagedCount: Int { trash.staged.count }
 
     var totalItems: Int { library.items.count }
 
@@ -67,7 +67,7 @@ final class AppState {
     /// Computed, not stored: the library can change under us (a PhotoKit
     /// notification, a deletion) and a cached copy would go stale.
     var browsableItems: [MediaItem] {
-        let staged = Set(bin.staged.map(\.id))
+        let staged = Set(trash.staged.map(\.id))
         guard !staged.isEmpty else { return library.items }
         return library.items.filter { !staged.contains($0.id) }
     }
@@ -78,7 +78,7 @@ final class AppState {
     /// `body` — and `browsableItems` allocates a whole filtered copy. Counting
     /// is the same O(n) without the allocation.
     var browsableCount: Int {
-        let staged = Set(bin.staged.map(\.id))
+        let staged = Set(trash.staged.map(\.id))
         guard !staged.isEmpty else { return library.items.count }
         return library.items.count(where: { !staged.contains($0.id) })
     }
@@ -134,7 +134,7 @@ final class AppState {
         switch tab {
         case .library, .search: browsableItems
         case .cleanup: cleanupGroups.flatMap(\.items)
-        case .bin: bin.staged
+        case .trash: trash.staged
         case .review: []
         }
     }
@@ -144,7 +144,7 @@ final class AppState {
         switch tab {
         case .library, .search: browsableCount
         case .cleanup: cleanupGroups.reduce(0) { $0 + $1.items.count }
-        case .bin: bin.staged.count
+        case .trash: trash.staged.count
         case .review: 0
         }
     }
@@ -159,7 +159,7 @@ final class AppState {
         switch tab {
         case .library, .search:
             let index = itemsByID
-            let staged = Set(bin.staged.map(\.id))
+            let staged = Set(trash.staged.map(\.id))
             return ids.compactMap { index[$0] }.filter { !staged.contains($0.id) }
         case .cleanup:
             let index = Dictionary(
@@ -167,9 +167,9 @@ final class AppState {
                 uniquingKeysWith: { first, _ in first }
             )
             return ids.compactMap { index[$0] }
-        case .bin:
+        case .trash:
             let index = Dictionary(
-                bin.staged.map { ($0.id, $0) },
+                trash.staged.map { ($0.id, $0) },
                 uniquingKeysWith: { first, _ in first }
             )
             return ids.compactMap { index[$0] }
@@ -254,38 +254,38 @@ final class AppState {
     }
 
     func stage(_ items: [MediaItem]) {
-        let added = bin.stage(items)
+        let added = trash.stage(items)
         guard !added.isEmpty else { return }
         let ids = Set(added.map(\.id))
         removeFromSelection(ids)
         offerUndo(
             added.count == 1
-                ? "Ajouté au panier."
-                : "\(added.count) éléments ajoutés au panier.",
-            restore: { [weak self] in self?.bin.unstage(ids) }
+                ? "Ajouté à la corbeille."
+                : "\(added.count) éléments ajoutés à la corbeille.",
+            restore: { [weak self] in self?.trash.unstage(ids) }
         )
     }
 
-    /// Removes items from the bin, with an undo that puts them back where they
+    /// Removes items from the trash, with an undo that puts them back where they
     /// were.
     func unstage(_ items: [MediaItem]) {
         guard !items.isEmpty else { return }
         let ids = Set(items.map(\.id))
-        bin.unstage(ids)
+        trash.unstage(ids)
         offerUndo(
             items.count == 1
-                ? "Retiré du panier."
-                : "\(items.count) éléments retirés du panier.",
-            restore: { [weak self] in self?.bin.restore(items) }
+                ? "Retiré de la corbeille."
+                : "\(items.count) éléments retirés de la corbeille.",
+            restore: { [weak self] in self?.trash.restore(items) }
         )
     }
 
     func unstageAll() {
-        let previous = bin.staged
+        let previous = trash.staged
         guard !previous.isEmpty else { return }
-        bin.unstageAll()
-        offerUndo("Panier vidé.") { [weak self] in
-            self?.bin.restoreExact(previous)
+        trash.unstageAll()
+        offerUndo("Corbeille vidée.") { [weak self] in
+            self?.trash.restoreExact(previous)
         }
     }
 

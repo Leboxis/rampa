@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Swipe triage. One asset at a time, big, with a physical gesture per verdict.
 ///
-/// The deck never deletes. "Mettre au panier" is just a different bucket from
-/// "Garder", and both are one flick away from being undone.
+/// The deck never deletes. "Mettre à la corbeille" is just a different bucket
+/// from "Garder", and both are one flick away from being undone.
 ///
 /// The deck now shows the whole photo. It used to use `.scaledToFill()` inside
 /// an explicit frame, which cropped every portrait shot to a square in the one
@@ -44,7 +44,7 @@ struct ReviewScreen: View {
     private var queueKey: String {
         [
             String(state.library.revision),
-            state.bin.staged.map(\.id).sorted().joined(separator: ","),
+            state.trash.staged.map(\.id).sorted().joined(separator: ","),
             kept.sorted().joined(separator: ",")
         ].joined(separator: "|")
     }
@@ -147,7 +147,7 @@ struct ReviewScreen: View {
         .accessibilityElement()
         .accessibilityLabel(item.isVideo ? "Vidéo" : "Photo")
         .accessibilityValue(item.creationDate.formatted(date: .abbreviated, time: .shortened))
-        .accessibilityHint("Glissez à gauche pour mettre au panier, à droite pour garder.")
+        .accessibilityHint("Glissez à gauche pour mettre à la corbeille, à droite pour garder.")
         .accessibilityAction(named: "Afficher en grand") {
             state.openViewer(item)
         }
@@ -169,7 +169,7 @@ struct ReviewScreen: View {
     private var controls: some View {
         HStack(spacing: 14) {
             actionButton(
-                title: "Panier",
+                title: "Corbeille",
                 symbol: "trash",
                 tint: Theme.danger
             ) {
@@ -223,7 +223,7 @@ struct ReviewScreen: View {
     private func verdict(for translation: CGFloat) -> Verdict? {
         guard translation.magnitude > 40 else { return nil }
         return translation < 0
-            ? Verdict(label: "PANIER", tint: Theme.danger)
+            ? Verdict(label: "CORBEILLE", tint: Theme.danger)
             : Verdict(label: "GARDER", tint: Theme.flare)
     }
 
@@ -277,7 +277,7 @@ struct ReviewScreen: View {
     // MARK: Queue
 
     private func rebuildQueue() {
-        let staged = Set(state.bin.staged.map(\.id))
+        let staged = Set(state.trash.staged.map(\.id))
         queue = state.library.items.filter {
             !staged.contains($0.id) && !kept.contains($0.id)
         }
@@ -289,7 +289,7 @@ struct ReviewScreen: View {
         EmptyStateView(
             symbol: "checkmark.seal.fill",
             title: "Revue terminée",
-            message: "Vous avez passé toute la bibliothèque en revue. Les éléments mis de côté vous attendent dans le panier.",
+            message: "Vous avez passé toute la bibliothèque en revue. Les éléments mis de côté vous attendent dans la corbeille.",
             action: .init(title: "Recommencer") {
                 withAnimation(Theme.Motion.pill) {
                     kept.removeAll()

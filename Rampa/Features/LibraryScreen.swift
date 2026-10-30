@@ -44,14 +44,14 @@ struct LibraryScreen: View {
     /// Everything `recompute()` depends on, in one comparable value.
     ///
     /// The staged set is folded in by identity, not by count: staging one photo
-    /// while another leaves the bin keeps the count identical but changes which
+    /// while another leaves the trash keeps the count identical but changes which
     /// assets are browsable.
     private var derivationKey: String {
         [
             String(state.library.revision),
             state.grouping.rawValue,
             state.sort.rawValue,
-            state.bin.staged.map(\.id).sorted().joined(separator: ",")
+            state.trash.staged.map(\.id).sorted().joined(separator: ",")
         ].joined(separator: "|")
     }
 

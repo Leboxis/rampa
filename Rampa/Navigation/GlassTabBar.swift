@@ -9,7 +9,7 @@ import SwiftUI
 /// rather than merely animated.
 struct GlassTabBar: View {
     let selection: AppTab
-    /// Count shown on the bin tab. Zero hides the badge.
+    /// Count shown on the trash tab. Zero hides the badge.
     var badge: Int = 0
     let onSelect: (AppTab) -> Void
 
@@ -86,7 +86,7 @@ struct GlassTabBar: View {
                     tab: tab,
                     isSelected: tab == selection,
                     itemWidth: itemWidth,
-                    badge: tab == .bin ? badge : 0
+                    badge: tab == .trash ? badge : 0
                 ) {
                     select(tab)
                 }

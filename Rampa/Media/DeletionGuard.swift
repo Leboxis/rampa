@@ -4,7 +4,7 @@ import Photos
 /// The safety rails between "I tapped delete" and "the asset is gone".
 ///
 /// Rampa never deletes anything straight from a tap. An item must first enter
-/// the staging bin, then survive a hold-to-confirm, then pass a biometric check,
+/// the trash, then survive a hold-to-confirm, then pass a biometric check,
 /// and even then PhotoKit only moves it to *its own* Recently Deleted album,
 /// where the system keeps it for 30 days. Four independent chances to change
 /// your mind.
@@ -12,8 +12,8 @@ import Photos
 @Observable
 final class DeletionGuard {
 
-    /// Assets waiting in the bin. Ordered most-recently-added first so the bin
-    /// reads like an undo stack.
+    /// Assets waiting in the trash. Ordered most-recently-added first so the
+    /// trash reads like an undo stack.
     private(set) var staged: [MediaItem] = []
 
     /// Assets removed from the system library this session, kept so the user
@@ -29,7 +29,7 @@ final class DeletionGuard {
         staged.contains { $0.id == id }
     }
 
-    /// Adds items to the bin. Adding is always safe: nothing leaves the library.
+    /// Adds items to the trash. Adding is always safe: nothing leaves the library.
     ///
     /// - Returns: the items that were not already staged, so the caller can
     ///   offer to undo exactly what this call changed.
@@ -51,7 +51,7 @@ final class DeletionGuard {
         staged.removeAll { ids.contains($0.id) }
     }
 
-    /// Puts back items that were just removed from the bin, keeping the order
+    /// Puts back items that were just removed from the trash, keeping the order
     /// the caller had. Used by undo, which is why it restores the array rather
     /// than re-inserting items one by one — re-inserting at the front reverses
     /// a multi-item undo.
@@ -63,7 +63,7 @@ final class DeletionGuard {
         staged.insert(contentsOf: missing, at: 0)
     }
 
-    /// Restores the bin to an exact previous state. This is what "Annuler"
+    /// Restores the trash to an exact previous state. This is what "Annuler"
     /// after "Vider" needs: a verbatim array, not a merge.
     func restoreExact(_ items: [MediaItem]) {
         staged = items
@@ -75,7 +75,7 @@ final class DeletionGuard {
 
     // MARK: Commit
 
-    /// Deletes everything in the bin from the system library.
+    /// Deletes everything in the trash from the system library.
     ///
     /// PhotoKit moves the assets to the system's Recently Deleted album, so the
     /// user still has 30 days to recover them from Photos itself. This is the
@@ -97,7 +97,7 @@ final class DeletionGuard {
         guard assets.count == batch.count else {
             // Something changed under us — a second device, or Photos already
             // cleared it. Reload rather than deleting a partial batch blind.
-            errorMessage = "Certains éléments ont changé entre-temps. Le panier a été rechargé."
+            errorMessage = "Certains éléments ont changé entre-temps. La corbeille a été rechargée."
             let surviving = Set(Self.existingIdentifiers(batch.map(\.id)))
             staged.removeAll { !surviving.contains($0.id) }
             return []
