@@ -3,57 +3,46 @@ import SwiftUI
 /// The five destinations of the app.
 ///
 /// The order of the cases *is* the order of the bar, so `rawValue` doubles as
-/// the horizontal index the selection pill travels to.
+/// the horizontal index the selection lens travels to.
 enum AppTab: Int, CaseIterable, Identifiable, Hashable {
-    case home
-    case flow
-    case create
-    case pulse
-    case vault
+    case library
+    case review
+    case cleanup
+    case search
+    case bin
 
     var id: Int { rawValue }
 
-    /// Bar label. Kept to one word so it never wraps under the glyph.
+    /// Bar label. One word each so it never wraps under the glyph.
     var title: String {
         switch self {
-        case .home: "Accueil"
-        case .flow: "Flux"
-        case .create: "Créer"
-        case .pulse: "Pulse"
-        case .vault: "Coffre"
+        case .library: "Photos"
+        case .review: "Revue"
+        case .cleanup: "Trier"
+        case .search: "Chercher"
+        case .bin: "Panier"
         }
     }
 
-    /// SF Symbol drawn in the bar. All five are filled for a consistent weight.
+    /// SF Symbol drawn in the bar.
     var symbol: String {
         switch self {
-        case .home: "square.grid.2x2.fill"
-        case .flow: "waveform.path.ecg"
-        case .create: "plus"
-        case .pulse: "bolt.fill"
-        case .vault: "lock.fill"
+        case .library: "square.grid.2x2.fill"
+        case .review: "rectangle.stack.fill"
+        case .cleanup: "wand.and.sparkles"
+        case .search: "magnifyingglass"
+        case .bin: "trash.fill"
         }
     }
 
-    /// One-line title for the screen's empty state.
+    /// Screen heading.
     var headline: String {
         switch self {
-        case .home: "Rien encore."
-        case .flow: "Le flux est vide."
-        case .create: "Commencez par un geste."
-        case .pulse: "Aucun signal."
-        case .vault: "Le coffre est fermé."
-        }
-    }
-
-    /// The sentence that invites the next action.
-    var invitation: String {
-        switch self {
-        case .home: "Ce que vous ajouterez apparaîtra ici."
-        case .flow: "Les nouveautés arriveront au fil de l'eau."
-        case .create: "Vos créations se rangeront à cet endroit."
-        case .pulse: "L'activité s'affichera dès le premier événement."
-        case .vault: "Vos éléments protégés vivront ici."
+        case .library: "Bibliothèque"
+        case .review: "Revue"
+        case .cleanup: "Tri automatique"
+        case .search: "Recherche"
+        case .bin: "Panier"
         }
     }
 }

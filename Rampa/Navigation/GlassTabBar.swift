@@ -9,6 +9,8 @@ import SwiftUI
 /// rather than merely animated.
 struct GlassTabBar: View {
     let selection: AppTab
+    /// Count shown on the bin tab. Zero hides the badge.
+    var badge: Int = 0
     let onSelect: (AppTab) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -83,7 +85,8 @@ struct GlassTabBar: View {
                 TabBarButton(
                     tab: tab,
                     isSelected: tab == selection,
-                    itemWidth: itemWidth
+                    itemWidth: itemWidth,
+                    badge: tab == .bin ? badge : 0
                 ) {
                     select(tab)
                 }
@@ -138,6 +141,7 @@ private struct TabBarButton: View {
     let tab: AppTab
     let isSelected: Bool
     let itemWidth: CGFloat
+    var badge: Int = 0
     let action: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -150,6 +154,19 @@ private struct TabBarButton: View {
                     .foregroundStyle(isSelected ? Theme.flare : Theme.inkSecondary)
                     .symbolEffect(.bounce, value: isSelected)
                     .offset(y: isSelected && !reduceMotion ? -2 : 0)
+                    .overlay(alignment: .topTrailing) {
+                        if badge > 0 {
+                            Text(badge > 99 ? "99+" : "\(badge)")
+                                .font(.system(size: 9, weight: .bold).monospacedDigit())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 4)
+                                .frame(minWidth: 15, minHeight: 15)
+                                .background(Theme.danger, in: Capsule())
+                                .offset(x: 11, y: -6)
+                                .contentTransition(.numericText())
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
 
                 Text(tab.title)
                     .font(.system(size: 10, weight: .semibold))
@@ -160,7 +177,8 @@ private struct TabBarButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityLabel(tab.title)
+        .animation(.smooth(duration: 0.24), value: badge)
+        .accessibilityLabel(badge > 0 ? "\(tab.title), \(badge) en attente" : tab.title)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

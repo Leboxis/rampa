@@ -57,6 +57,12 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Rampa lit votre photothèque pour vous aider à la trier par mois, année, taille et type, et à mettre de côté ce dont vous ne voulez plus.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Rampa peut enregistrer des éléments dans votre photothèque lorsque vous le demandez.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID confirme chaque suppression avant qu'elle ne touche votre photothèque.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

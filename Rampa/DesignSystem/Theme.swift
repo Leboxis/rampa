@@ -24,6 +24,16 @@ enum Theme {
     /// The single accent. Used for the active tab and its ambient light only.
     static let flare = Color(light: 0x2F5BEA, dark: 0x7DA2FF)
 
+    /// Reserved exclusively for destructive intent. Never used for decoration,
+    /// so seeing it always means "this removes something".
+    static let danger = Color(light: 0xC2352F, dark: 0xFF7B72)
+
+    /// Neutral surface behind unloaded thumbnails and empty grids.
+    static let placeholder = Color(light: 0xE7E5E0, dark: 0x16181D)
+
+    /// Hairline separator on the canvas.
+    static let hairline = Color(light: 0x000000, dark: 0xFFFFFF).opacity(0.10)
+
     // MARK: Metrics
 
     enum Metrics {

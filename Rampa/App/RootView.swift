@@ -5,36 +5,51 @@ import SwiftUI
 ///
 /// The bar is laid out by the parent rather than with `.safeAreaInset`, so it
 /// floats clear of the home indicator and content can pass behind it. The stage
-/// reserves the bar's height at the bottom, which keeps its empty state centred
-/// in the space you can actually see.
+/// reserves the bar's height at the bottom, which keeps content out from under
+/// the glass.
 struct RootView: View {
-    @State private var selection: AppTab = .home
+    @State private var state = AppState()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            AmbientBackdrop(tab: selection)
+            AmbientBackdrop(tab: state.tab)
 
-            TabStageView(tab: selection)
-                .id(selection)
+            stage
+                .id(state.tab)
                 .transition(stageTransition)
                 .padding(.bottom, Theme.Metrics.barHeight + Theme.Metrics.barInset)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            GlassTabBar(selection: selection) { tab in
-                guard tab != selection else { return }
+            GlassTabBar(
+                selection: state.tab,
+                badge: state.stagedCount
+            ) { tab in
+                guard tab != state.tab else { return }
                 // One curve for everything that moves: the lens, the stage and
                 // the ambient pool are three views of the same state change.
                 if reduceMotion {
-                    selection = tab
+                    state.tab = tab
                 } else {
-                    withAnimation(Theme.Motion.pill) { selection = tab }
+                    withAnimation(Theme.Motion.pill) { state.tab = tab }
                 }
             }
             .padding(.horizontal, Theme.Metrics.barInset)
             .padding(.bottom, 6)
         }
         .background(Theme.canvas)
+        .environment(state)
+    }
+
+    @ViewBuilder
+    private var stage: some View {
+        switch state.tab {
+        case .library: LibraryScreen()
+        case .review: ReviewScreen()
+        case .cleanup: CleanupScreen()
+        case .search: SearchScreen()
+        case .bin: BinScreen()
+        }
     }
 
     /// A short vertical glide with a fade. Deliberately restrained: the bar's
